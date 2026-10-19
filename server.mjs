@@ -7,6 +7,8 @@ import { createStore } from './lib/store.mjs';
 import { assert, LEVELS, AREAS, publicQuestion } from './lib/validation.mjs';
 import { questions as seeds } from './content/questions.mjs';
 import { loadAuth } from './lib/auth.mjs';
+import { createTts } from './lib/tts.mjs';
+import { resolveSpeechSource } from './lib/tts-source.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = resolve(root, 'public');
@@ -15,6 +17,7 @@ let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(dataDirectory, 'auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
 const store = createStore(dataDirectory, seeds);
+const tts = createTts({ cacheDir: resolve(dataDirectory, 'tts-cache') });
 const PORT = Number(process.env.PORT || 3210), HOST = process.env.HOST || '127.0.0.1';
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); };
@@ -50,6 +53,20 @@ async function api(req, res, url) {
   const path = url.pathname, method = req.method;
   if (method === 'GET' && path === '/api/health') return json(res, 200, { ok: true });
   if (method === 'GET' && path === '/api/state') return json(res, 200, state());
+  if (method === 'GET' && path === '/api/tts/voices') return json(res, 200, await tts.voices());
+  if (method === 'POST' && path === '/api/tts/audio') {
+    const { text, voice } = resolveSpeechSource(store, await body(req));
+    const controller = new AbortController();
+    const disconnected = () => { if (!res.writableEnded) controller.abort(); };
+    res.once('close', disconnected);
+    try {
+      const audio = await tts.synthesize(text, { voice, signal: controller.signal });
+      if (controller.signal.aborted || res.destroyed) return;
+      res.writeHead(200, { 'Content-Type': audio.contentType, 'Content-Length': audio.buffer.length, 'Cache-Control': 'private, no-store' });
+      res.end(audio.buffer);
+    } finally { res.removeListener('close', disconnected); }
+    return;
+  }
   if (method === 'GET' && path === '/api/practice') {
     assert(!url.searchParams.has('language') || url.searchParams.get('language') === 'ja', '현재 일본어 연습만 지원합니다.');
     const level = url.searchParams.get('level') || store.getSettings().level;
@@ -131,5 +148,11 @@ server.requestTimeout = 120000;
 server.headersTimeout = 10000;
 server.listen(PORT, HOST, () => console.log(`JLPT Study is running at http://${HOST}:${server.address().port}`));
 let stopping = false;
-function shutdown() { if (stopping) return; stopping = true; server.close(() => { store.db.close(); process.exit(0); }); server.closeIdleConnections(); setTimeout(() => { server.closeAllConnections(); store.db.close(); process.exit(0); }, 5000).unref(); }
+function shutdown() {
+  if (stopping) return; stopping = true;
+  const closed = Promise.resolve(tts.close()).catch(() => {});
+  server.close(async () => { await closed; store.db.close(); process.exit(0); });
+  server.closeIdleConnections();
+  setTimeout(() => { server.closeAllConnections(); store.db.close(); process.exit(0); }, 5000).unref();
+}
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

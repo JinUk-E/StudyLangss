@@ -1,4 +1,6 @@
 import { mountPractice } from './practice.js';
+import { createJapaneseSpeech } from './speech.js';
+const questionSpeech = createJapaneseSpeech();
 const $ = (s, root = document) => root.querySelector(s);
 const main = $('#main');
 const areaNames = { vocabulary: '어휘 · 한자', grammar: '문법', reading: '독해', listening: '청해' };
@@ -78,6 +80,7 @@ async function startStudy(mode = 'study', area, fresh = false) {
   } catch (error) { if (token === pageToken) { shell('학습실', '잠시 후 다시 시도해 주세요.', `<div class="error">${esc(error.message)}</div><button class="btn" id="retry">다시 시도</button>`); $('#retry').onclick = () => startStudy(mode, area, fresh); } }
 }
 function renderQuestion() {
+  questionSpeech.cancel();
   const s = session, q = s.questions[s.index];
   const isReview = s.mode === 'review';
   const toolbar = `<div class="toolbar"><span class="section-caption">${isReview ? '복습' : '학습'} · ${esc(s.level)} <span class="tag">${s.questions.length}문제</span></span>${!isReview ? `<label class="sr-only" for="area-filter">학습 영역</label><select id="area-filter" class="filter"><option value="all">모든 영역</option>${Object.entries(areaNames).map(([k, v]) => `<option value="${k}" ${s.area === k ? 'selected' : ''}>${v}</option>`).join('')}</select>` : ''}</div>`;
@@ -88,12 +91,12 @@ function renderQuestion() {
     bindFilter(); return;
   }
   const feedback = result ? `<section class="feedback ${result.correct ? '' : 'wrong'}" aria-live="polite"><h3>${result.correct ? '잘했어요! 정답이에요.' : '괜찮아요. 함께 기억해 봐요.'}</h3><p>${esc(result.explanation)}</p><small class="section-caption">다음 복습: ${esc(reviewLabel(result.reviewDueAt))}</small>${isReview ? '<div class="rating" aria-label="체감 난이도"><button data-rating="again">다시 공부</button><button data-rating="hard">어려웠어요</button><button data-rating="good">기억했어요</button><button data-rating="easy">쉬웠어요</button></div>' : ''}<div class="ai-box"><div class="field" style="margin-bottom:12px"><label for="ai-question">궁금한 점 (선택)</label><input id="ai-question" maxlength="2000" placeholder="예: 다른 선택지는 왜 틀렸나요?"></div><button id="ai-explain" class="btn secondary">AI에게 더 물어보기 ↗</button><p class="help">설정에 연결한 Ollama로 설명을 요청해요. AI가 생성한 설명에는 오류가 있을 수 있으니 기본 해설과 함께 확인하세요.</p><div id="ai-response" class="ai-text" aria-live="polite"></div></div></section>` : '';
-  shell(isReview ? '기억을 단단하게.' : '오늘도, 한 문제씩.', '작은 이해가 쌓여, 자연스러운 일본어가 돼요.', `${toolbar}<section class="panel question-card"><div class="question-top"><span>${esc(areaNames[q.area])} <span class="tag">${esc(q.level)}</span></span><span>${s.index + 1} / ${s.questions.length}</span></div><div class="progress"><span style="width:${(s.index + (result ? 1 : 0)) / s.questions.length * 100}%"></span></div>${q.area === 'listening' ? '<div class="inline-row"><button class="btn secondary" id="listen">▷ 합성 음성 연습</button><span class="help">시험 음원이 아닌 기기 합성 음성이에요.</span></div><div id="voice-note" class="help" role="status"></div>' : ''}${q.passage && (q.area !== 'listening' || result) ? `<div class="passage" lang="ja">${esc(q.passage)}</div>` : ''}<h2 class="question-prompt" lang="ja">${esc(q.prompt)}</h2>${q.reading ? `<label class="checkbox"><input type="checkbox" id="reading-toggle" ${readingVisible ? 'checked' : ''}> 읽기 표시</label><p id="reading" lang="ja" class="help" ${readingVisible ? '' : 'hidden'}>${esc(q.reading)}</p>` : ''}<div class="choices" role="group" aria-label="정답 선택">${q.choices.map((choice, index) => `<button class="choice ${selected === index ? 'selected' : ''} ${result && result.answerIndex === index ? 'correct' : ''} ${result && !result.correct && selected === index ? 'incorrect' : ''}" data-choice="${index}" aria-pressed="${selected === index}" ${result || busy ? 'disabled' : ''}><span class="number">${index + 1}</span><span lang="ja">${esc(choice)}</span>${result && result.answerIndex === index ? '<span aria-label="정답">✓</span>' : ''}</button>`).join('')}</div>${feedback}<div id="question-error" role="alert"></div><div class="question-actions"><span class="help">${esc(q.source || 'HARU 자체 연습 문제')} · 연습용 문항</span><button class="btn" id="answer" ${!result && selected === null || busy ? 'disabled' : ''}>${busy ? '확인 중…' : result ? s.index + 1 === s.questions.length ? '학습 마치기 →' : '다음 문제 →' : '정답 확인'}</button></div></section>`);
+  shell(isReview ? '기억을 단단하게.' : '오늘도, 한 문제씩.', '작은 이해가 쌓여, 자연스러운 일본어가 돼요.', `${toolbar}<section class="panel question-card"><div class="question-top"><span>${esc(areaNames[q.area])} <span class="tag">${esc(q.level)}</span></span><span>${s.index + 1} / ${s.questions.length}</span></div><div class="progress"><span style="width:${(s.index + (result ? 1 : 0)) / s.questions.length * 100}%"></span></div>${q.area === 'listening' ? '<div class="inline-row"><button class="btn secondary" id="listen">▷ 합성 음성 연습</button><span class="help">Mac 서버에서 합성한 연습 음성이에요.</span></div><div id="voice-note" class="help" role="status"></div>' : ''}${q.passage && (q.area !== 'listening' || result) ? `<div class="passage" lang="ja">${esc(q.passage)}</div>` : ''}<h2 class="question-prompt" lang="ja">${esc(q.prompt)}</h2>${q.reading ? `<label class="checkbox"><input type="checkbox" id="reading-toggle" ${readingVisible ? 'checked' : ''}> 읽기 표시</label><p id="reading" lang="ja" class="help" ${readingVisible ? '' : 'hidden'}>${esc(q.reading)}</p>` : ''}<div class="choices" role="group" aria-label="정답 선택">${q.choices.map((choice, index) => `<button class="choice ${selected === index ? 'selected' : ''} ${result && result.answerIndex === index ? 'correct' : ''} ${result && !result.correct && selected === index ? 'incorrect' : ''}" data-choice="${index}" aria-pressed="${selected === index}" ${result || busy ? 'disabled' : ''}><span class="number">${index + 1}</span><span lang="ja">${esc(choice)}</span>${result && result.answerIndex === index ? '<span aria-label="정답">✓</span>' : ''}</button>`).join('')}</div>${feedback}<div id="question-error" role="alert"></div><div class="question-actions"><span class="help">${esc(q.source || 'HARU 자체 연습 문제')} · 연습용 문항</span><button class="btn" id="answer" ${!result && selected === null || busy ? 'disabled' : ''}>${busy ? '확인 중…' : result ? s.index + 1 === s.questions.length ? '학습 마치기 →' : '다음 문제 →' : '정답 확인'}</button></div></section>`);
   bindFilter();
   document.querySelectorAll('[data-choice]').forEach(b => b.onclick = () => { selected = Number(b.dataset.choice); renderQuestion(); });
   $('#answer').onclick = submitAnswer;
   if ($('#reading-toggle')) $('#reading-toggle').onchange = e => { readingVisible = e.target.checked; $('#reading').hidden = !readingVisible; };
-  if ($('#listen')) $('#listen').onclick = () => speak(q.passage || q.prompt);
+  if ($('#listen')) $('#listen').onclick = () => speak(q.id);
   if ($('#ai-explain')) $('#ai-explain').onclick = explain;
   document.querySelectorAll('[data-rating]').forEach(b => b.onclick = async () => { try { await post(`/api/reviews/${encodeURIComponent(q.id)}`, { rating: b.dataset.rating }); document.querySelectorAll('[data-rating]').forEach(x => x.disabled = true); toast('복습 일정을 조정했어요.'); } catch (error) { toast(error.message); } });
 }
@@ -129,12 +132,9 @@ async function explain() {
   catch (error) { if (output.isConnected) output.textContent = error.message; }
   finally { if (button.isConnected) button.disabled = false; }
 }
-function speak(text) {
+function speak(questionId) {
   const note = $('#voice-note');
-  if (!('speechSynthesis' in window)) { note.textContent = '이 브라우저는 음성 합성을 지원하지 않아요.'; return; }
-  const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('ja'));
-  if (!voices.length) { note.textContent = '일본어 음성을 찾지 못했어요. 기기의 일본어 음성을 설치한 뒤 다시 시도해 주세요.'; return; }
-  speechSynthesis.cancel(); const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'ja-JP'; utterance.voice = voices[0]; utterance.rate = .85; utterance.onerror = () => { if (note.isConnected) note.textContent = '음성을 재생하지 못했어요.'; }; note.textContent = '일본어 합성 음성을 재생해요.'; speechSynthesis.speak(utterance);
+  questionSpeech.play({ questionId, part: 'passage' }, { rate: .85, status: text => { if (note?.isConnected) note.textContent = text; } });
 }
 function reviews() {
   const items = state.reviewItems || [];
@@ -157,7 +157,7 @@ async function loadFile(event, restore) {
 async function navigate() {
   disposePractice?.(); disposePractice = undefined;
   const token = ++pageToken; route = location.hash.slice(1) || 'home'; if (!['home', 'study', 'reviews', 'records', 'settings', 'words', 'sentences', 'listening'].includes(route)) route = 'home';
-  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  questionSpeech.cancel();
   document.querySelectorAll('[data-route]').forEach(a => { a.classList.toggle('active', a.dataset.route === route); if (a.dataset.route === route) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   try {
     state = await api('/api/state'); if (token !== pageToken) return;

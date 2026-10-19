@@ -1,5 +1,5 @@
 // 자체 제작 연습 자료입니다. 급수는 학습 분류용이며 공식 난도 판정을 뜻하지 않습니다.
-// listening의 passage는 브라우저 일본어 음성 합성으로 읽는 연습용 대본입니다.
+// listening의 passage는 Mac 서버의 일본어 음성 합성으로 읽는 연습용 대본입니다.
 const source = '자체 제작 학습 예제 · 공식 기출 아님';
 const make = (id, level, area, prompt, choices, answerIndex, explanation, tags, extra = {}) =>
   ({ id, level, area, prompt, choices, answerIndex, explanation, tags, source, ...extra });

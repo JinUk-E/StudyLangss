@@ -40,6 +40,23 @@ async function api(path, method = 'GET', payload, headers = {}) {
   return { status: response.status, data: await response.json() };
 }
 
+test('server speech endpoints validate stored sources and fail clearly on unsupported hosts', async () => {
+  const voices = await api('/api/tts/voices');
+  assert.equal(voices.status, 200); assert.equal(typeof voices.data.available, 'boolean'); assert.ok(Array.isArray(voices.data.voices));
+  const bank = (await api('/api/practice?level=N5&kind=words')).data;
+  const source = { entryId: bank.items[0].id, part: 'word' };
+  for (const invalid of [{ ...source, text: 'arbitrary text' }, { ...source, path: '/tmp/arbitrary' }, { ...source, questionId: 'n5-l01' }, { ...source, part: 'unknown' }, { ...source, entryId: '../escape' }]) assert.equal((await api('/api/tts/audio', 'POST', invalid)).status, 400);
+  assert.equal((await api('/api/tts/audio', 'POST', { entryId: 'missing-id', part: 'word' })).status, 404);
+  assert.equal((await api('/api/tts/audio', 'POST', { questionId: 'n5-v01', part: 'passage' })).status, 400);
+  assert.equal((await api('/api/tts/audio', 'POST', source, { Origin: 'https://untrusted.example' })).status, 403);
+  if (process.platform !== 'darwin') {
+    assert.equal(voices.data.available, false); assert.match(voices.data.error, /Mac|macOS/);
+    const audio = await api('/api/tts/audio', 'POST', source);
+    assert.equal(audio.status, 503); assert.match(audio.data.error, /Mac|macOS/);
+    assert.equal((await api('/api/health')).status, 200);
+  }
+});
+
 test('Japanese practice API follows target level, validates filters, and guards listening records', async () => {
   await api('/api/settings', 'PUT', { level: 'N4' });
   const bank = (await api('/api/practice?kind=words')).data;
@@ -70,12 +87,12 @@ test('all five levels have original examples in every area with valid answers', 
 });
 
 test('all pages and APIs require authentication, including backup, writes, and health', async () => {
-  for (const path of ['/', '/app.js', '/styles.css', '/practice.js', '/speech.js', '/api/practice', '/api/practice/summary', '/api/health', '/api/state', '/api/settings', '/api/backup', '/api/questions', '/api/reviews', '/api/ollama/models']) {
+  for (const path of ['/', '/app.js', '/styles.css', '/practice.js', '/speech.js', '/api/tts/voices', '/api/practice', '/api/practice/summary', '/api/health', '/api/state', '/api/settings', '/api/backup', '/api/questions', '/api/reviews', '/api/ollama/models']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 401, path); assert.match(response.headers.get('www-authenticate'), /Basic realm="HARU"/);
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
-  for (const [path, method] of [['/api/practice/grade', 'POST'], ['/api/restore', 'POST'], ['/api/ai/explain', 'POST'], ['/api/attempts', 'POST'], ['/api/settings', 'PUT'], ['/api/questions/import', 'POST']]) {
+  for (const [path, method] of [['/api/tts/audio', 'POST'], ['/api/practice/grade', 'POST'], ['/api/restore', 'POST'], ['/api/ai/explain', 'POST'], ['/api/attempts', 'POST'], ['/api/settings', 'PUT'], ['/api/questions/import', 'POST']]) {
     const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'X-Forwarded-User': testUser }, body: '{}' });
     assert.equal(response.status, 401, path);
   }
