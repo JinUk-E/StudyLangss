@@ -70,3 +70,38 @@ test('profile editing publishes only validated fields; portfolio data survives r
   const project = store.saveProject(fixture()); store.db.close(); store = createPortfolioStore(isolated);
   assert.equal(store.project(project.id).title, fixture().title); store.db.close();
 });
+
+test('resume stays private until explicitly published and persists after reopening', async () => {
+  assert.equal((await call('/resume/', {}, false)).status, 401);
+  assert.equal((await call('/api/portfolio/resume', {}, false)).status, 401);
+  assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: '{}' }, false)).status, 401);
+  const { resume } = await (await call('/api/portfolio/manage')).json();
+  const value = { ...resume, headline: '프로젝트 이력서', summary: '직접 입력한 소개', experience: [{ title: '실제 입력 경력', organization: '테스트 기관', period: '2026', description: '입력한 설명' }], education: [], published: false };
+  assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify(value) })).status, 200);
+  assert.equal((await call('/resume/')).status, 200);
+  assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify({ ...value, published: true }) })).status, 200);
+  assert.equal((await call('/resume/', {}, false)).status, 200);
+  assert.equal((await (await call('/api/portfolio/resume', {}, false)).json()).resume.summary, value.summary);
+  assert.equal((await call('/api/portfolio/resume', { method: 'PUT', headers: { Origin: 'https://other.example' }, body: JSON.stringify(value) })).status, 403);
+  assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify({ ...value, skills: Array(41).fill('x') }) })).status, 400);
+  await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify(value) });
+  assert.equal((await call('/resume/', {}, false)).status, 401);
+  const isolated = join(directory, 'resume-persistence'); let store = createPortfolioStore(isolated);
+  store.saveResume(value); store.db.close(); store = createPortfolioStore(isolated); assert.deepEqual(store.resume(), value); store.db.close();
+});
+
+test('starter content is seeded once and user edits and deletions survive restart', () => {
+  const isolated = join(directory, 'content-migration'); let store = createPortfolioStore(isolated);
+  assert.equal(store.projects().length, 3); assert.ok(store.profile().intro.length > 20);
+  assert.deepEqual(store.resume().experience, []); assert.deepEqual(store.resume().education, []);
+  const id = store.projects()[0].id;
+  const custom = { ...store.profile(), tagline: '직접 작성한 문구', intro: '사용자가 수정한 소개' };
+  store.saveProfile(custom); store.remove(id); store.db.close(); store = createPortfolioStore(isolated);
+  assert.equal(store.profile().tagline, custom.tagline); assert.equal(store.profile().intro, custom.intro);
+  assert.equal(store.projects().length, 2); assert.equal(store.project(id), undefined); store.db.close();
+});
+
+test('shared navigation assets and portfolio routes are served on the public site', async () => {
+  for (const path of ['/shared/shell.css', '/shared/shell.js', '/portfolio/', '/site/editorial.css', '/site/resume.js']) assert.equal((await call(path, {}, false)).status, 200, path);
+  const html = await (await call('/')).text(); assert.match(html, /data-section="home"/); assert.match(html, /href="\/resume\/"/);
+});

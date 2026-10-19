@@ -119,7 +119,7 @@ function newChat() {
   if (state.busy) return;
   state.id = null; state.messages = []; preference.set('thread', null);
   $('#messages').replaceChildren(); $('#welcome').hidden = false; $('#delete-chat').hidden = true;
-  $('#thread-title').textContent = '새로운 생각을 시작해 볼까요?'; notice(''); closeMenu();
+  $('#thread-title').textContent = '새 대화'; notice(''); closeMenu();
   document.querySelectorAll('.thread').forEach(button => button.classList.remove('active')); $('#prompt').focus();
 }
 

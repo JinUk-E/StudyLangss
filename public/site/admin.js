@@ -70,4 +70,37 @@ $('#preview-project').onclick = () => {
 };
 $('#close-preview').onclick = () => $('#preview-dialog').close();
 window.addEventListener('beforeunload', event => { if (dirty || uploading) { event.preventDefault(); event.returnValue = ''; } });
-try { const data = await load(); for (const [name, value] of Object.entries(data.profile)) $('#profile-form').elements[name].value = value; } catch (error) { status(error.message); }
+const requestedSection = new URLSearchParams(location.search).get('section');
+const editorSection = ['profile', 'projects', 'resume'].includes(requestedSection) ? requestedSection : 'profile';
+for (const panel of document.querySelectorAll('[data-editor-section]')) panel.hidden = panel.dataset.editorSection !== editorSection;
+let resumeEntries = { experience: [], education: [] };
+function renderEntries(type) {
+  const parent = $(`#${type}-entries`); parent.replaceChildren();
+  resumeEntries[type].forEach((entry, index) => {
+    const box = el('div', undefined, 'entry-editor'), fields = el('div', undefined, 'form-grid');
+    for (const [key, caption, max] of [['title', '제목 · 직무', 150], ['organization', '기관 · 회사', 150], ['period', '기간', 80], ['description', '내용', 3000]]) {
+      const label = el('label', caption), input = el(key === 'description' ? 'textarea' : 'input');
+      input.value = entry[key] || ''; input.maxLength = max; input.required = key === 'title';
+      input.oninput = () => { entry[key] = input.value; dirty = true; }; label.append(input); if (key === 'description') label.className = 'wide'; fields.append(label);
+    }
+    const remove = el('button', '항목 제외', 'button light'); remove.type = 'button'; remove.onclick = () => { resumeEntries[type].splice(index, 1); dirty = true; renderEntries(type); };
+    box.append(fields, remove); parent.append(box);
+  });
+}
+for (const type of ['experience', 'education']) $(`#add-${type}`).onclick = () => { if (resumeEntries[type].length >= 30) return status('항목은 최대 30개입니다.'); resumeEntries[type].push({ title: '', organization: '', period: '', description: '' }); dirty = true; renderEntries(type); };
+$('#resume-form').oninput = () => { dirty = true; };
+$('#resume-form').onsubmit = async event => {
+  event.preventDefault(); if (saving) return;
+  const form = event.target, value = { headline: form.elements.headline.value, summary: form.elements.summary.value, skills: form.elements.skills.value.split(',').map(s => s.trim()).filter(Boolean), ...resumeEntries, published: form.elements.published.checked };
+  lock(true); status('이력서를 저장하고 있습니다.');
+  try { await api('/resume', { method: 'PUT', body: JSON.stringify(value) }); dirty = false; status(value.published ? '이력서를 저장하고 공개했습니다.' : '비공개 이력서로 저장했습니다.'); }
+  catch (error) { status(error.message); } finally { lock(false); }
+};
+try {
+  const data = await load();
+  for (const [name, value] of Object.entries(data.profile)) if ($('#profile-form').elements[name]) $('#profile-form').elements[name].value = value;
+  for (const name of ['headline', 'summary']) $('#resume-form').elements[name].value = data.resume[name];
+  $('#resume-form').elements.skills.value = data.resume.skills.join(', '); $('#resume-form').elements.published.checked = data.resume.published;
+  resumeEntries = { experience: data.resume.experience, education: data.resume.education };
+  renderEntries('experience'); renderEntries('education');
+} catch (error) { status(error.message); }

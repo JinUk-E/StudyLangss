@@ -15,7 +15,8 @@ const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': '
 const files = new Map([
   ['/', ['index.html', 'text/html']], ['/site/styles.css', ['styles.css', 'text/css']],
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
-  ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']]
+  ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],
+  ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']]
 ]);
 async function bytes(req, limit) {
   let size = 0; const chunks = [];
@@ -43,6 +44,11 @@ const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
     const read = ['GET', 'HEAD'].includes(method);
+    if (read && ['/portfolio', '/resume'].includes(path)) { res.writeHead(302, { Location: `${path}/` }); return res.end(); }
+    if (read && ['/shared/shell.css', '/shared/shell.js'].includes(path)) {
+      const content = await readFile(resolve(root, 'public', path.slice(1)));
+      res.writeHead(200, { 'Content-Type': path.endsWith('.css') ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8' }); return res.end(method === 'HEAD' ? undefined : content);
+    }
     if (path === '/api/portfolio/public' && read) {
       if (method === 'HEAD') { res.writeHead(200); return res.end(); }
       return json(res, 200, { profile: store.profile(), projects: store.projects().filter(p => p.published) });
@@ -59,11 +65,15 @@ const server = createServer(async (req, res) => {
       asset = files.get('/');
     }
     const privateRoute = path.startsWith('/admin') || path === '/site/admin.js' || path.startsWith('/api/portfolio/');
+    if (path === '/resume/' && !store.resume().published && !await authenticate(req, res)) return;
+    if (path === '/api/portfolio/resume' && read && store.resume().published) return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
     if (privateRoute && !await authenticate(req, res)) return;
     sameOrigin(req);
     if (path === '/admin' && read) { res.writeHead(302, { Location: '/admin/' }); return res.end(); }
     if (asset && read) { const content = await readFile(resolve(root, 'public/site', asset[0])); res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content); }
-    if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects() });
+    if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects(), resume: store.resume() });
+    if (path === '/api/portfolio/resume' && method === 'GET') return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
+    if (path === '/api/portfolio/resume' && method === 'PUT') return json(res, 200, { resume: store.saveResume(await body(req)) });
     if (path === '/api/portfolio/profile' && method === 'PUT') return json(res, 200, { profile: store.saveProfile(await body(req)) });
     if (path === '/api/portfolio/images' && method === 'POST') return json(res, 201, store.addImage(await bytes(req, 8 * 1024 * 1024)));
     if (path === '/api/portfolio/projects' && method === 'POST') return json(res, 201, { project: store.saveProject(await body(req)) });
