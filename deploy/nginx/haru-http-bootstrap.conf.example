@@ -1,0 +1,11 @@
+# FIRST certificate only: use instead of haru.conf until certificates exist.
+# Include inside http {}. Never proxy the app or accept passwords over public HTTP.
+server {
+    listen 80;
+    server_name jlpt.example.com;
+    location ^~ /.well-known/acme-challenge/ {
+        root /opt/homebrew/var/www/haru-acme;
+        default_type text/plain;
+    }
+    location / { return 404; }
+}

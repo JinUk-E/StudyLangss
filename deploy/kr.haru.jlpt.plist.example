@@ -6,9 +6,9 @@
   <key>ProgramArguments</key>
   <array>
     <string>/ABSOLUTE/PATH/TO/node</string>
-    <string>/ABSOLUTE/PATH/TO/PesnalVo/server.mjs</string>
+    <string>/ABSOLUTE/PATH/TO/StudyLangss/server.mjs</string>
   </array>
-  <key>WorkingDirectory</key><string>/ABSOLUTE/PATH/TO/PesnalVo</string>
+  <key>WorkingDirectory</key><string>/ABSOLUTE/PATH/TO/StudyLangss</string>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>10</integer>

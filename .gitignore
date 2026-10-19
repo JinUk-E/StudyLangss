@@ -4,5 +4,12 @@ node_modules/
 *.log
 .DS_Store
 .env
+.env.*
+!.env.example
+auth.json
+auth.json.*.tmp
+*.pem
+*.key
+*.htpasswd
 .qa/
 haru-jlpt-mvp.zip

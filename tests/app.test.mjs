@@ -1,19 +1,25 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { spawn, spawnSync } from 'node:child_process';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import { questions } from '../content/questions.mjs';
 import { createStore } from '../lib/store.mjs';
 import { schedule } from '../lib/validation.mjs';
+import { createCredentials } from '../lib/auth.mjs';
+
+// Disposable integration-test account, never a production default.
+const testUser = 'haru-test', testPassword = 'test-only-password:2026';
+const authorization = `Basic ${Buffer.from(`${testUser}:${testPassword}`).toString('base64')}`;
 
 let child, directory, base, output = '';
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'haru-integration-'));
-  child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: directory }, stdio: ['ignore', 'pipe', 'pipe'] });
+  await writeFile(join(directory, 'auth.json'), JSON.stringify(await createCredentials(testUser, testPassword)), { mode: 0o600 });
+  child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: directory, AUTH_FILE: join(directory, 'auth.json') }, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stderr.on('data', chunk => { output += chunk; });
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Server readiness timeout: ${output}`)), 15000);
@@ -30,7 +36,7 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 async function api(path, method = 'GET', payload, headers = {}) {
-  const response = await fetch(base + path, { method, headers: { ...(payload ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: payload ? JSON.stringify(payload) : undefined });
+  const response = await fetch(base + path, { method, headers: { Authorization: authorization, ...(payload ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: payload ? JSON.stringify(payload) : undefined });
   return { status: response.status, data: await response.json() };
 }
 
@@ -41,6 +47,50 @@ test('all five levels have original examples in every area with valid answers', 
     for (const area of ['vocabulary', 'grammar', 'reading', 'listening']) assert.ok(questions.some(q => q.level === level && q.area === area));
   }
   for (const q of questions) { assert.equal(q.choices.length, 4); assert.ok(q.choices[q.answerIndex]); assert.ok(q.explanation); assert.match(q.source, /공식 기출 아님/); }
+});
+
+test('all pages and APIs require authentication, including backup, writes, and health', async () => {
+  for (const path of ['/', '/app.js', '/styles.css', '/api/health', '/api/state', '/api/settings', '/api/backup', '/api/questions', '/api/reviews', '/api/ollama/models']) {
+    const response = await fetch(base + path);
+    assert.equal(response.status, 401, path); assert.match(response.headers.get('www-authenticate'), /Basic realm="HARU"/);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+  }
+  for (const [path, method] of [['/api/restore', 'POST'], ['/api/ai/explain', 'POST'], ['/api/attempts', 'POST'], ['/api/settings', 'PUT'], ['/api/questions/import', 'POST']]) {
+    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'X-Forwarded-User': testUser }, body: '{}' });
+    assert.equal(response.status, 401, path);
+  }
+  for (const method of ['HEAD', 'OPTIONS']) assert.equal((await fetch(base + '/', { method })).status, 401);
+  assert.equal((await fetch(base + '/', { headers: { Authorization: authorization } })).status, 200);
+});
+
+test('wrong or malformed credentials fail and forwarded identity cannot bypass authentication', async () => {
+  for (const value of ['Bearer anything', 'Basic !!!', 'Basic eA==', `Basic ${Buffer.from(`${testUser}:wrong`).toString('base64')}`, `Basic ${Buffer.from(`other:${testPassword}`).toString('base64')}`]) {
+    assert.equal((await fetch(base + '/api/state', { headers: { Authorization: value } })).status, 401);
+  }
+  assert.equal((await api('/api/health')).status, 200);
+  const backup = (await api('/api/backup')).data;
+  assert.equal('auth' in backup, false); assert.equal('password' in backup, false);
+  assert.ok(!JSON.stringify(backup).includes(testPassword));
+});
+
+test('HTTPS reverse proxy preserves authenticated writes when original Host is forwarded', async () => {
+  const throughProxy = host => new Promise((resolve, reject) => {
+    const req = request(`${base}/api/settings`, { method: 'PUT', headers: { Host: host, Origin: 'https://jlpt.example.com', Authorization: authorization, 'Content-Type': 'application/json' } }, res => {
+      res.resume(); res.on('end', () => resolve(res.statusCode));
+    });
+    req.on('error', reject); req.end(JSON.stringify({ level: 'N5' }));
+  });
+  assert.equal(await throughProxy('jlpt.example.com'), 200);
+  assert.equal(await throughProxy('127.0.0.1:3210'), 403);
+});
+
+test('missing or corrupt credentials stop startup instead of allowing anonymous access', async () => {
+  const missingFile = join(directory, 'missing-auth.json'), corruptFile = join(directory, 'corrupt-auth.json');
+  await writeFile(corruptFile, JSON.stringify({ username: 'haru', password: 'plaintext-is-not-supported' }));
+  for (const filename of [missingFile, corruptFile]) {
+    const run = spawnSync(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: '0', DATA_DIR: directory, AUTH_FILE: filename }, encoding: 'utf8', timeout: 5000 });
+    assert.equal(run.status, 1); assert.match(run.stderr, /setup-auth/); assert.ok(!run.stdout.includes('running'));
+  }
 });
 
 test('goal level is validated, persists, and filters question banks', async () => {
@@ -75,6 +125,7 @@ test('answer submission records real results and schedules reviews; AI requires 
 });
 
 test('backup restore is atomic and round-trips settings, questions, attempts, and reviews', async () => {
+  const authBefore = await readFile(join(directory, 'auth.json'), 'utf8');
   const backup = (await api('/api/backup')).data;
   assert.equal(backup.schemaVersion, 1);
   const broken = structuredClone(backup); broken.attempts[0].questionId = 'missing';
@@ -84,6 +135,7 @@ test('backup restore is atomic and round-trips settings, questions, attempts, an
   assert.equal((await api('/api/restore', 'POST', backup)).status, 200);
   const restored = (await api('/api/backup')).data;
   for (const key of ['settings', 'questions', 'attempts', 'reviews']) assert.deepEqual(restored[key], backup[key]);
+  assert.equal(await readFile(join(directory, 'auth.json'), 'utf8'), authBefore);
 });
 
 test('imports validate the entire batch and cross-site writes are rejected', async () => {

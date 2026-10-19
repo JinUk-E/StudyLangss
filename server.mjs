@@ -6,10 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { createStore } from './lib/store.mjs';
 import { assert, LEVELS, AREAS, publicQuestion } from './lib/validation.mjs';
 import { questions as seeds } from './content/questions.mjs';
+import { loadAuth } from './lib/auth.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = resolve(root, 'public');
-const store = createStore(resolve(process.env.DATA_DIR || resolve(root, 'data')), seeds);
+const dataDirectory = resolve(process.env.DATA_DIR || resolve(root, 'data'));
+let authenticate;
+try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(dataDirectory, 'auth.json'))); }
+catch (error) { console.error(error.message); process.exit(1); }
+const store = createStore(dataDirectory, seeds);
 const PORT = Number(process.env.PORT || 3210), HOST = process.env.HOST || '127.0.0.1';
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(value)); };
@@ -94,6 +99,7 @@ async function api(req, res, url) {
 const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('X-Frame-Options', 'DENY');
   try {
+    if (!await authenticate(req, res)) return;
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       assert(req.headers['sec-fetch-site'] !== 'cross-site', '다른 사이트에서의 요청은 허용하지 않습니다.', 403);
