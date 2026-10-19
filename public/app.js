@@ -1,9 +1,11 @@
+import { mountPractice } from './practice.js';
 const $ = (s, root = document) => root.querySelector(s);
 const main = $('#main');
 const areaNames = { vocabulary: '어휘 · 한자', grammar: '문법', reading: '독해', listening: '청해' };
 const areaIcons = { vocabulary: '語', grammar: '文', reading: '読', listening: '聴' };
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let state, route = '', session, selected = null, result = null, questionStarted = 0, busy = false, pageToken = 0, readingVisible = false;
+let disposePractice;
 const dateLabel = date => new Date(date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 const reviewLabel = date => new Date(date).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
 const pendingAttempts = new WeakSet();
@@ -23,6 +25,9 @@ function statsHtml() {
   const s = state.stats;
   return `<div class="stats"><div class="stat"><span class="label">오늘 푼 문제</span><strong>${s.todayAnswered}<small>문제</small></strong><span class="hint">오늘도 한 걸음씩</span></div><div class="stat"><span class="label">현재 급수 정답률</span><strong>${Math.round(s.accuracy || 0)}<small>%</small></strong><span class="hint">누적 ${s.totalAnswered}문제 기준</span></div><div class="stat"><span class="label">복습할 문제</span><strong>${s.dueCount}<small>문제</small></strong><span class="hint">지금 다시 기억할 시간</span></div><div class="stat"><span class="label">연속 학습</span><strong>${s.streak}<small>일</small></strong><span class="hint">나만의 꾸준한 리듬</span></div></div>`;
 }
+function practiceLinks() {
+  return `<div class="practice-shortcuts">${[['words', '단어 암기', '뜻을 떠올리고 예문으로 확인'], ['sentences', '문장 연습', '빈칸 표현과 문장 구조 연습'], ['listening', '듣기 연습', '반복 재생과 받아쓰기']].map(([key, title, caption]) => `<a href="#${key}"><strong>${title} →</strong><small>${caption}<br>복습할 항목 ${state.practice?.[key]?.dueCount || 0}개 · 오늘 기록 ${state.practice?.[key]?.reviewsToday || 0}회</small></a>`).join('')}</div>`;
+}
 function activityHtml(attempts) {
   return attempts.length ? attempts.slice(0, 10).map(a => `<div class="activity"><span class="result-dot ${a.correct ? '' : 'wrong'}">${a.correct ? '✓' : '↺'}</span><div><p lang="ja">${esc(a.prompt)}</p><small>${esc(a.level)} · ${esc(areaNames[a.area] || a.area)} · ${esc(dateLabel(a.createdAt))}</small></div></div>`).join('') : `<div class="empty"><span class="empty-icon">✎</span>아직 학습 기록이 없어요.<br>첫 번째 문제로 오늘을 시작해 보세요.</div>`;
 }
@@ -34,7 +39,7 @@ function areasHtml() {
   }).join('');
 }
 function home() {
-  shell('하루의 작은 공부,<br>일본어가 되는 시간.', '오늘도 나의 속도로, 하나씩 쌓아가요.', `<section class="hero"><div><p class="eyebrow">TODAY’S STUDY</p><h2>오늘의 ${state.settings.level} 학습을<br>시작해 볼까요?</h2><p>목표는 하루 ${state.settings.dailyMinutes}분. 짧은 문제 풀이와 복습으로<br>어제보다 조금 더 익숙한 일본어를 만나세요.</p><a class="btn" href="#study">${hasSavedSession() ? '이어서 학습하기' : '학습 시작하기'} <span>↗</span></a></div><div class="hero-art" aria-hidden="true"><span class="hero-kanji">日々</span><small>ONE DAY AT A TIME</small></div></section>${statsHtml()}<div class="grid-two"><section class="panel"><div class="panel-head"><h2>영역별 학습</h2><span class="text-link">현재 급수 누적</span></div>${areasHtml()}</section><section class="panel"><div class="panel-head"><h2>최근의 발자취</h2><a href="#records" class="text-link">전체 보기 ↗</a></div>${activityHtml((state.recentAttempts || []).slice(0, 3))}</section></div><p class="footer-note">작은 반복이 만드는 큰 변화 · HARU</p>`);
+  shell('하루의 작은 공부,<br>일본어가 되는 시간.', '오늘도 나의 속도로, 하나씩 쌓아가요.', `<section class="hero"><div><p class="eyebrow">TODAY’S STUDY</p><h2>오늘의 ${state.settings.level} 학습을<br>시작해 볼까요?</h2><p>목표는 하루 ${state.settings.dailyMinutes}분. 짧은 문제 풀이와 복습으로<br>어제보다 조금 더 익숙한 일본어를 만나세요.</p><a class="btn" href="#study">${hasSavedSession() ? '이어서 학습하기' : '학습 시작하기'} <span>↗</span></a></div><div class="hero-art" aria-hidden="true"><span class="hero-kanji">日々</span><small>ONE DAY AT A TIME</small></div></section>${practiceLinks()}${statsHtml()}<div class="grid-two"><section class="panel"><div class="panel-head"><h2>영역별 학습</h2><span class="text-link">현재 급수 누적</span></div>${areasHtml()}</section><section class="panel"><div class="panel-head"><h2>최근의 발자취</h2><a href="#records" class="text-link">전체 보기 ↗</a></div>${activityHtml((state.recentAttempts || []).slice(0, 3))}</section></div><p class="footer-note">작은 반복이 만드는 큰 변화 · HARU</p>`);
 }
 function hasSavedSession() { try { const s = JSON.parse(localStorage.getItem('haru-session')); return s?.level === state.settings.level && s?.index < s?.ids?.length; } catch { return false; } }
 function saveSession(value = session) {
@@ -136,7 +141,7 @@ function reviews() {
   shell('잊기 전에, 한 번 더.', '다시 만나는 문제는 더 오래 남아요.', `<div class="toolbar"><span class="section-caption">현재 급수의 복습 일정 · ${esc(state.settings.level)}</span><button class="btn" id="review-start" ${!state.stats.dueCount ? 'disabled' : ''}>지금 복습하기 ↗</button></div><div class="review-list">${items.length ? items.map(q => `<article class="review-row"><div><span class="tag">${esc(q.level)} · ${esc(areaNames[q.area])}</span><p lang="ja">${esc(q.prompt)}</p><small>${new Date(q.dueAt) <= new Date() ? '지금 복습할 시간이에요' : `${esc(reviewLabel(q.dueAt))} 복습 예정`}</small></div><span class="muted" aria-hidden="true">↺</span></article>`).join('') : '<div class="panel empty"><span class="empty-icon">↺</span>아직 복습할 문제가 없어요.<br>문제를 풀면 복습 일정이 자동으로 만들어져요.<br><br><a class="btn secondary" href="#study">학습하러 가기</a></div>'}</div>`);
   $('#review-start').onclick = () => startStudy('review', 'all', true);
 }
-function records() { shell('쌓여가는 나의 일본어.', '작은 발자취를 돌아보며, 다음 한 걸음을 준비해요.', `${statsHtml()}<div class="grid-two"><section class="panel"><div class="panel-head"><h2>영역별 이해도</h2><span class="text-link">현재 급수 누적</span></div>${areasHtml()}<p class="help">직접 풀이한 기록만 표시해요. 정답률은 공식 시험 점수와 다릅니다.</p></section><section class="panel"><div class="panel-head"><h2>최근 학습 기록</h2></div>${activityHtml(state.recentAttempts || [])}</section></div>`); }
+function records() { shell('쌓여가는 나의 일본어.', '작은 발자취를 돌아보며, 다음 한 걸음을 준비해요.', `${practiceLinks()}${statsHtml()}<div class="grid-two"><section class="panel"><div class="panel-head"><h2>영역별 이해도</h2><span class="text-link">현재 급수 누적</span></div>${areasHtml()}<p class="help">직접 풀이한 기록만 표시해요. 정답률은 공식 시험 점수와 다릅니다.</p></section><section class="panel"><div class="panel-head"><h2>최근 학습 기록</h2></div>${activityHtml(state.recentAttempts || [])}</section></div>`); }
 function settings() {
   const s = state.settings;
   shell('나에게 맞는 공부방.', '목표와 공부 시간을 정하고, AI와 학습 자료를 연결하세요.', `<form id="settings-form" class="panel settings-panel"><h2>학습 목표</h2><div class="form-grid"><div class="field"><label for="level">JLPT 목표 급수</label><select id="level" name="level">${['N5', 'N4', 'N3', 'N2', 'N1'].map(level => `<option ${s.level === level ? 'selected' : ''}>${level}</option>`).join('')}</select><small>N5부터 N1까지, 언제든 목표를 바꿀 수 있어요.</small></div><div class="field"><label for="dailyMinutes">하루 목표 시간 (분)</label><input id="dailyMinutes" name="dailyMinutes" type="number" min="5" max="180" required value="${s.dailyMinutes}"><small>학습량을 정하는 개인 목표예요.</small></div></div><h2 style="margin-top:35px">로컬 AI 연결</h2><p class="section-caption">Mac Studio에서 실행하는 Ollama에 연결합니다. 기본 정답과 해설은 AI 연결 없이도 사용할 수 있어요.</p><div class="form-grid"><div class="field"><label for="ollamaUrl">Ollama 주소</label><input id="ollamaUrl" name="ollamaUrl" type="url" required value="${esc(s.ollamaUrl)}" placeholder="http://127.0.0.1:11434"><small>앱 서버의 localhost 또는 127.0.0.1 주소를 입력하세요.</small></div><div class="field"><label for="ollamaModel">사용할 모델</label><input id="ollamaModel" name="ollamaModel" list="model-options" value="${esc(s.ollamaModel)}" placeholder="설치한 모델 이름"><datalist id="model-options"></datalist><small>Ollama에 설치한 정확한 모델 태그를 입력하세요.</small></div></div><div class="actions"><button class="btn" type="submit">설정 저장</button><button id="models-refresh" class="btn ghost" type="button">모델 목록 확인</button></div><div id="settings-status" class="help" role="status"></div></form><section class="panel settings-panel"><h2>나의 데이터</h2><p class="section-caption">설정과 학습 기록을 JSON 파일로 보관하고 복원할 수 있어요.<br>문제 가져오기는 정해진 JSON 형식의 학습 자료를 추가합니다.</p><div class="actions"><a href="/api/backup" download class="btn secondary">백업 내려받기 ↓</a><button class="btn ghost" id="restore">백업 복원</button><button class="btn ghost" id="import">문제 가져오기</button></div><input type="file" accept=".json,application/json" id="restore-file" hidden><input type="file" accept=".json,application/json" id="import-file" hidden><div id="data-status" class="help" role="status"></div><details style="margin-top:20px"><summary class="help">문제 JSON 형식 보기</summary><pre class="help" style="overflow:auto">${esc(JSON.stringify({ questions: [{ id: 'my-n5-001', level: 'N5', area: 'vocabulary', prompt: '「山」の読み方は？', choices: ['やま', 'かわ', 'うみ', 'そら'], answerIndex: 0, explanation: '山은 やま로 읽습니다.', tags: ['한자'], source: '직접 만든 연습 문제' }] }, null, 2))}</pre></details></section>`);
@@ -150,10 +155,19 @@ async function loadFile(event, restore) {
   try { const data = JSON.parse(await file.text()); if (restore && !confirm('현재 학습 기록과 설정을 선택한 백업으로 덮어씁니다. 복원할까요?')) return; await post(restore ? '/api/restore' : '/api/questions/import', data); if (restore) clearSavedSession(); session = null; state = await api('/api/state'); settings(); toast(restore ? '백업을 복원했어요.' : '학습 문제를 가져왔어요.'); } catch (error) { $('#data-status').textContent = error.message; } finally { event.target.value = ''; }
 }
 async function navigate() {
-  const token = ++pageToken; route = location.hash.slice(1) || 'home'; if (!['home', 'study', 'reviews', 'records', 'settings'].includes(route)) route = 'home';
+  disposePractice?.(); disposePractice = undefined;
+  const token = ++pageToken; route = location.hash.slice(1) || 'home'; if (!['home', 'study', 'reviews', 'records', 'settings', 'words', 'sentences', 'listening'].includes(route)) route = 'home';
   if ('speechSynthesis' in window) speechSynthesis.cancel();
   document.querySelectorAll('[data-route]').forEach(a => { a.classList.toggle('active', a.dataset.route === route); if (a.dataset.route === route) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-  try { state = await api('/api/state'); if (token !== pageToken) return; if (route === 'home') home(); else if (route === 'study') await startStudy(); else if (route === 'reviews') reviews(); else if (route === 'records') records(); else settings(); window.scrollTo({ top: 0 }); main.focus({ preventScroll: true }); }
+  try {
+    state = await api('/api/state'); if (token !== pageToken) return;
+    if (['words', 'sentences', 'listening'].includes(route)) {
+      const headings = { words: ['한 단어씩, 오래 기억하기.', '뜻을 떠올리고 예문으로 확인하며 나만의 복습 간격을 만드세요.'], sentences: ['문장 속에서 익히는 표현.', '빈칸을 채우고 활용형과 문장 구조를 함께 살펴보세요.'], listening: ['듣고, 쓰고, 다시 듣기.', '일본어 합성 음성을 반복해서 듣고 대본과 비교해 보세요.'] };
+      shell(...headings[route], '<div id="practice-root"></div>');
+      disposePractice = mountPractice($('#practice-root'), { level: state.settings.level, kind: route });
+    } else if (route === 'home') home(); else if (route === 'study') await startStudy(); else if (route === 'reviews') reviews(); else if (route === 'records') records(); else settings();
+    window.scrollTo({ top: 0 }); main.focus({ preventScroll: true });
+  }
   catch (error) { main.innerHTML = `<section class="panel"><h1>공부방에 연결하지 못했어요.</h1><p class="error">${esc(error.message)}</p><button class="btn" id="reconnect">다시 연결</button></section>`; $('#reconnect').onclick = navigate; }
 }
 window.addEventListener('hashchange', navigate);

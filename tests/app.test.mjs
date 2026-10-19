@@ -40,6 +40,26 @@ async function api(path, method = 'GET', payload, headers = {}) {
   return { status: response.status, data: await response.json() };
 }
 
+test('Japanese practice API follows target level, validates filters, and guards listening records', async () => {
+  await api('/api/settings', 'PUT', { level: 'N4' });
+  const bank = (await api('/api/practice?kind=words')).data;
+  assert.equal(bank.level, 'N4'); assert.equal(bank.language, 'ja'); assert.equal(bank.count, 12);
+  assert.ok(bank.items.every(item => item.level === 'N4' && item.language === 'ja'));
+  for (const query of ['kind=unknown', 'level=N0', 'queue=invalid', 'limit=-1', 'limit=1.5', 'language=en']) assert.equal((await api(`/api/practice?${query}`)).status, 400);
+  const input = { requestId: 'api-practice-0001', entryId: bank.items[0].id, kind: 'listening', rating: 'good', durationMs: 5000, answer: '' };
+  assert.equal((await api('/api/practice/grade', 'POST', input)).status, 400);
+  const result = await api('/api/practice/grade', 'POST', { ...input, listened: true });
+  assert.equal(result.status, 200); assert.equal(result.data.match, null);
+  assert.equal((await api('/api/practice/grade', 'POST', { ...input, listened: true })).data.duplicate, true);
+  assert.equal((await api('/api/practice/grade', 'POST', { ...input, listened: true, rating: 'easy' })).status, 409);
+  const state = (await api('/api/state')).data;
+  assert.equal(state.practice.listening.reviewsToday, 1); assert.equal(state.practice.words.reviewsToday, 0);
+  assert.equal(state.stats.todayAnswered, 0);
+  assert.equal((await api('/api/practice/summary')).data.summary.listening.seen, 1);
+  assert.equal((await api('/api/practice/grade', 'POST', { ...input, entryId: {}, listened: true })).status, 400);
+  assert.equal((await api('/api/practice/grade', 'POST', { ...input, listened: true }, { Origin: 'https://untrusted.example' })).status, 403);
+});
+
 test('all five levels have original examples in every area with valid answers', () => {
   assert.equal(new Set(questions.map(q => q.id)).size, questions.length);
   for (const level of ['N5', 'N4', 'N3', 'N2', 'N1']) {
@@ -50,12 +70,12 @@ test('all five levels have original examples in every area with valid answers', 
 });
 
 test('all pages and APIs require authentication, including backup, writes, and health', async () => {
-  for (const path of ['/', '/app.js', '/styles.css', '/api/health', '/api/state', '/api/settings', '/api/backup', '/api/questions', '/api/reviews', '/api/ollama/models']) {
+  for (const path of ['/', '/app.js', '/styles.css', '/practice.js', '/speech.js', '/api/practice', '/api/practice/summary', '/api/health', '/api/state', '/api/settings', '/api/backup', '/api/questions', '/api/reviews', '/api/ollama/models']) {
     const response = await fetch(base + path);
     assert.equal(response.status, 401, path); assert.match(response.headers.get('www-authenticate'), /Basic realm="HARU"/);
     assert.equal(response.headers.get('cache-control'), 'no-store');
   }
-  for (const [path, method] of [['/api/restore', 'POST'], ['/api/ai/explain', 'POST'], ['/api/attempts', 'POST'], ['/api/settings', 'PUT'], ['/api/questions/import', 'POST']]) {
+  for (const [path, method] of [['/api/practice/grade', 'POST'], ['/api/restore', 'POST'], ['/api/ai/explain', 'POST'], ['/api/attempts', 'POST'], ['/api/settings', 'PUT'], ['/api/questions/import', 'POST']]) {
     const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'X-Forwarded-User': testUser }, body: '{}' });
     assert.equal(response.status, 401, path);
   }
@@ -127,7 +147,7 @@ test('answer submission records real results and schedules reviews; AI requires 
 test('backup restore is atomic and round-trips settings, questions, attempts, and reviews', async () => {
   const authBefore = await readFile(join(directory, 'auth.json'), 'utf8');
   const backup = (await api('/api/backup')).data;
-  assert.equal(backup.schemaVersion, 1);
+  assert.equal(backup.schemaVersion, 2);
   const broken = structuredClone(backup); broken.attempts[0].questionId = 'missing';
   assert.equal((await api('/api/restore', 'POST', broken)).status, 400);
   assert.deepEqual((await api('/api/backup')).data.attempts, backup.attempts);

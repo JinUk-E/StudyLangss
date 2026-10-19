@@ -18,7 +18,7 @@ try {
   const response = await fetch(destination, { headers: { Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` }, redirect: 'error', signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`백업 요청 실패: HTTP ${response.status}`);
   const backup = await response.json();
-  if (backup.schemaVersion !== 1 || !Array.isArray(backup.questions)) throw new Error('백업 형식을 확인할 수 없습니다.');
+  if (![1, 2].includes(backup.schemaVersion) || !Array.isArray(backup.questions)) throw new Error('백업 형식을 확인할 수 없습니다.');
   await mkdir(directory, { recursive: true });
   const filename = resolve(directory, `haru-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   await writeFile(filename, JSON.stringify(backup, null, 2), { flag: 'wx', mode: 0o600 });

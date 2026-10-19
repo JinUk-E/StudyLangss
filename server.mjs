@@ -36,7 +36,7 @@ function state() {
   const days = new Set(attempts.map(a => day(a.createdAt)));
   let streak = 0, cursor = new Date(now); if (!days.has(day(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1);
   while (days.has(day(cursor))) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1); }
-  return { settings, stats: { todayAnswered: todays.length, todayCorrect: todays.filter(a => a.correct).length, totalAnswered: attempts.length, accuracy: attempts.length ? Math.round(attempts.filter(a => a.correct).length / attempts.length * 100) : 0, dueCount: reviewItems.filter(r => r.dueAt <= now.toISOString()).length, streak }, areas: AREAS.map(area => ({ area, answered: attempts.filter(a => qs.get(a.questionId).area === area).length, correct: attempts.filter(a => qs.get(a.questionId).area === area && a.correct).length })), recentAttempts: attempts.slice(-30).reverse().map(a => ({ ...a, prompt: qs.get(a.questionId).prompt, area: qs.get(a.questionId).area, level: qs.get(a.questionId).level })), reviewItems };
+  return { settings, practice: store.practice.summary(settings.level), stats: { todayAnswered: todays.length, todayCorrect: todays.filter(a => a.correct).length, totalAnswered: attempts.length, accuracy: attempts.length ? Math.round(attempts.filter(a => a.correct).length / attempts.length * 100) : 0, dueCount: reviewItems.filter(r => r.dueAt <= now.toISOString()).length, streak }, areas: AREAS.map(area => ({ area, answered: attempts.filter(a => qs.get(a.questionId).area === area).length, correct: attempts.filter(a => qs.get(a.questionId).area === area && a.correct).length })), recentAttempts: attempts.slice(-30).reverse().map(a => ({ ...a, prompt: qs.get(a.questionId).prompt, area: qs.get(a.questionId).area, level: qs.get(a.questionId).level })), reviewItems };
 }
 let aiBusy = false;
 async function ollama(path, options = {}) {
@@ -50,6 +50,16 @@ async function api(req, res, url) {
   const path = url.pathname, method = req.method;
   if (method === 'GET' && path === '/api/health') return json(res, 200, { ok: true });
   if (method === 'GET' && path === '/api/state') return json(res, 200, state());
+  if (method === 'GET' && path === '/api/practice') {
+    assert(!url.searchParams.has('language') || url.searchParams.get('language') === 'ja', '현재 일본어 연습만 지원합니다.');
+    const level = url.searchParams.get('level') || store.getSettings().level;
+    const kind = url.searchParams.get('kind') || 'words', queue = url.searchParams.get('queue') || 'recommended';
+    const limit = Number(url.searchParams.get('limit') || 10);
+    assert(Number.isInteger(limit) && limit >= 1 && limit <= 50, '학습량은 1~50개입니다.');
+    return json(res, 200, store.practice.list(level, kind, queue, limit));
+  }
+  if (method === 'GET' && path === '/api/practice/summary') return json(res, 200, { language: 'ja', level: store.getSettings().level, summary: store.practice.summary(store.getSettings().level) });
+  if (method === 'POST' && path === '/api/practice/grade') { const input = await body(req); return json(res, 200, store.transaction(() => store.practice.grade(input))); }
   if (method === 'GET' && path === '/api/settings') return json(res, 200, store.getSettings());
   if (method === 'PUT' && path === '/api/settings') return json(res, 200, store.setSettings({ ...store.getSettings(), ...await body(req) }));
   if (method === 'GET' && path === '/api/questions') {
