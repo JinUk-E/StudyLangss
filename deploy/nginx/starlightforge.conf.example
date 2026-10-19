@@ -1,0 +1,95 @@
+# Starlight Forge: DNS-01 certificates; port 80 remains available for existing Certbot.
+limit_req_zone $binary_remote_addr zone=starlight_requests:10m rate=5r/s;
+
+server {
+    listen 443 ssl;
+    server_name starlightforge.duckdns.org;
+
+    ssl_certificate /ABSOLUTE/PATH/TO/StudyLangss/data/letsencrypt/config/live/starlightforge.duckdns.org/fullchain.pem;
+    ssl_certificate_key /ABSOLUTE/PATH/TO/StudyLangss/data/letsencrypt/config/live/starlightforge.duckdns.org/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    client_max_body_size 32m;
+    limit_req zone=starlight_requests burst=20 nodelay;
+    limit_req_status 429;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy same-origin always;
+
+    # Personal chat: independent API and SQLite store; authentication in chat-server.mjs.
+    location ~ ^/(chat(?:/|$)|api/chat/) {
+        proxy_pass http://127.0.0.1:3211;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        client_max_body_size 64k;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 600s;
+        proxy_send_timeout 600s;
+    }
+
+    location = /study { return 302 /study/; }
+
+    location ^~ /api/portfolio/ {
+        proxy_pass http://127.0.0.1:3212;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_cache off;
+        client_max_body_size 8m;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:3210;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_cache off;
+    }
+
+    location /study/ {
+        proxy_pass http://127.0.0.1:3210/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_cache off;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3212;
+        proxy_http_version 1.1;
+        proxy_set_header Host $http_host;
+        proxy_set_header Authorization $http_authorization;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        proxy_cache off;
+    }
+
+}

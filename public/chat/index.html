@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#242334"><title>별빛공방 · AI 대화</title>
+  <link rel="stylesheet" href="/chat/styles.css"><script type="module" src="/chat/app.js"></script>
+</head>
+<body>
+  <aside id="sidebar">
+    <a class="brand" href="/chat/"><span class="star" aria-hidden="true">✦</span><span>별빛공방<small>STARLIGHT FORGE</small></span></a>
+    <button id="new-chat" class="new-chat">＋ 새 대화</button>
+    <div class="section-label">나의 대화 <span id="thread-count"></span></div>
+    <nav id="threads" aria-label="대화 기록"><p class="muted">대화를 불러오는 중…</p></nav>
+    <footer><a href="/">↗ 별빛공방 홈</a><a href="/study/">↗ 일본어 공부방</a><span><i></i> 나만의 작은 작업실</span></footer>
+  </aside>
+  <main>
+    <header>
+      <button id="menu" class="icon-button" aria-label="대화 목록 열기" aria-expanded="false">☰</button>
+      <div class="heading"><span>AI 대화</span><h1 id="thread-title">새로운 생각을 시작해 볼까요?</h1></div>
+      <button id="delete-chat" class="text-button" hidden>대화 삭제</button>
+    </header>
+    <div class="model-bar"><label for="model">모델</label><select id="model" aria-label="대화 모델"><option value="">불러오는 중…</option></select><button id="refresh-models" class="icon-button" aria-label="모델 목록 새로고침">↻</button><span class="local-label">이 Mac에서 실행</span></div>
+    <section id="conversation" aria-label="대화 내용">
+      <div id="welcome" class="welcome"><div class="constellation" aria-hidden="true">✧ <b>✦</b> ✧</div><p class="eyebrow">YOUR LITTLE WORKSHOP</p><h2>작은 궁금증에서,<br>반짝이는 생각까지.</h2><p>함께 생각을 정리하고, 새로운 것을 배워 보세요.<br>웹 검색을 켜면 출처와 함께 답해 드려요.</p><div class="suggestions"><button data-prompt="복잡한 일을 시작하기 어려울 때, 작은 단계로 나누는 방법을 알려줘.">생각 정리하기 <span>↗</span></button><button data-prompt="일본어로 자연스럽게 자기소개하는 표현을 예시와 함께 알려줘.">함께 배우기 <span>↗</span></button><button data-prompt="오늘의 우주 탐사 소식을 찾아서 출처와 함께 요약해줘." data-search="true">새로운 소식 찾기 <span>↗</span></button></div></div>
+      <div id="messages"></div>
+    </section>
+    <div class="compose-area">
+      <div id="notice" role="status" aria-live="polite"></div>
+      <form id="composer">
+        <label class="sr-only" for="prompt">메시지</label>
+        <textarea id="prompt" rows="2" maxlength="12000" placeholder="어떤 이야기를 나눠 볼까요?"></textarea>
+        <div class="compose-bottom"><label class="search-toggle"><input id="web-search" type="checkbox"><span>◎ 웹 검색</span></label><span class="keyboard-hint">Enter로 전송 · Shift + Enter로 줄바꿈</span><button id="stop" type="button" hidden>■ 중지</button><button id="send" type="submit" disabled aria-label="메시지 보내기">↑</button></div>
+      </form>
+      <p class="footnote">AI 답변은 틀릴 수 있어요. 웹 검색을 켜면 질문의 검색어가 외부 검색 서비스로 전달됩니다.</p>
+    </div>
+  </main>
+</body>
+</html>

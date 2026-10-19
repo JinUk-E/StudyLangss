@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PORTFOLIO_HOST</key>
+		<string>127.0.0.1</string>
+		<key>PORTFOLIO_PORT</key>
+		<string>3212</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>org.starlightforge.portfolio</string>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/ABSOLUTE/PATH/TO/node</string>
+		<string>/ABSOLUTE/PATH/TO/StudyLangss/portfolio-server.mjs</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/ABSOLUTE/PATH/TO/StudyLangss/data/ops/org.starlightforge.portfolio.stderr.log</string>
+	<key>StandardOutPath</key>
+	<string>/ABSOLUTE/PATH/TO/StudyLangss/data/ops/org.starlightforge.portfolio.stdout.log</string>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>WorkingDirectory</key>
+	<string>/ABSOLUTE/PATH/TO/StudyLangss</string>
+</dict>
+</plist>

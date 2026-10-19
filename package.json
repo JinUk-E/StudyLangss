@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Mac Studio에서 운영하는 개인용 JLPT 학습 앱",
+  "description": "별빛공방: 개인 포트폴리오, Ollama AI 대화와 JLPT 학습 앱",
   "engines": { "node": ">=24.0.0" },
   "scripts": {
     "start": "node server.mjs",
+    "start:chat": "node chat-server.mjs",
+    "start:portfolio": "node portfolio-server.mjs",
     "dev": "node --watch server.mjs",
     "test": "node --test tests/*.test.mjs",
     "backup": "node scripts/backup.mjs",
