@@ -1,4 +1,6 @@
 data/
+*.sqlite
+*.sqlite-*
 backups/
 node_modules/
 *.log

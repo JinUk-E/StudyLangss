@@ -25,7 +25,7 @@ const proxyCall = (path, body) => new Promise((resolve, reject) => {
 async function start() {
   child = spawn(process.execPath, ['portfolio-server.mjs'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), PORTFOLIO_DATA_DIR: join(directory, 'portfolio'), PUSH_DATA_DIR: join(directory, 'push'), PUSH_CONFIG_FILE: join(directory, 'vapid.json'), PORTFOLIO_PORT: '0' },
+    env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'), PORTFOLIO_DATA_DIR: join(directory, 'portfolio'), PUSH_DATA_DIR: join(directory, 'push'), PUSH_CONFIG_FILE: join(directory, 'vapid.json'), PORTFOLIO_PORT: '0' },
     stdio: ['ignore', 'pipe', 'pipe']
   });
   base = await new Promise((resolve, reject) => {

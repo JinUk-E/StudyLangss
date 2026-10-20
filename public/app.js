@@ -43,20 +43,21 @@ function areasHtml() {
 function home() {
   shell('하루의 작은 공부,<br>일본어가 되는 시간.', '오늘도 나의 속도로, 하나씩 쌓아가요.', `<section class="hero"><div><p class="eyebrow">TODAY’S STUDY</p><h2>오늘의 ${state.settings.level} 학습을<br>시작해 볼까요?</h2><p>목표는 하루 ${state.settings.dailyMinutes}분. 짧은 문제 풀이와 복습으로<br>어제보다 조금 더 익숙한 일본어를 만나세요.</p><a class="btn" href="#study">${hasSavedSession() ? '이어서 학습하기' : '학습 시작하기'} <span>↗</span></a></div><div class="hero-art" aria-hidden="true"><span class="hero-kanji">日々</span><small>ONE DAY AT A TIME</small></div></section>${practiceLinks()}${statsHtml()}<div class="grid-two"><section class="panel"><div class="panel-head"><h2>영역별 학습</h2><span class="text-link">현재 급수 누적</span></div>${areasHtml()}</section><section class="panel"><div class="panel-head"><h2>최근의 발자취</h2><a href="#records" class="text-link">전체 보기 ↗</a></div>${activityHtml((state.recentAttempts || []).slice(0, 3))}</section></div><p class="footer-note">작은 반복이 만드는 큰 변화 · HARU</p>`);
 }
-function hasSavedSession() { try { const s = JSON.parse(localStorage.getItem('haru-session')); return s?.level === state.settings.level && s?.index < s?.ids?.length; } catch { return false; } }
+const sessionKey = () => !state?.user || state.user.id === 'owner' ? 'haru-session' : `haru-session:${state.user.id}`;
+function hasSavedSession() { try { const s = JSON.parse(localStorage.getItem(sessionKey())); return s?.level === state.settings.level && s?.index < s?.ids?.length; } catch { return false; } }
 function saveSession(value = session) {
   if (!value) return;
-  try { localStorage.setItem('haru-session', JSON.stringify({ ...value, questions: undefined, ids: value.questions.map(q => q.id) })); }
+  try { localStorage.setItem(sessionKey(), JSON.stringify({ ...value, questions: undefined, ids: value.questions.map(q => q.id) })); }
   catch { toast('이 브라우저에 이어하기를 저장하지 못했어요. 제출한 학습 기록은 서버에 보관됩니다.'); }
 }
-function clearSavedSession() { try { localStorage.removeItem('haru-session'); } catch { /* Server settings and records remain available without browser storage. */ } }
+function clearSavedSession() { try { localStorage.removeItem(sessionKey()); } catch { /* Server settings and records remain available without browser storage. */ } }
 async function startStudy(mode = 'study', area, fresh = false) {
   const token = ++pageToken;
   if (area === undefined) {
     area = 'all';
     if (!fresh && mode === 'study') {
       try {
-        const saved = JSON.parse(localStorage.getItem('haru-session'));
+        const saved = JSON.parse(localStorage.getItem(sessionKey()));
         if (saved?.level === state.settings.level && saved?.mode === mode && saved.index < saved.ids?.length && ['all', ...Object.keys(areaNames)].includes(saved.area)) area = saved.area;
       } catch { /* Start a normal session if browser storage is unavailable. */ }
     }
@@ -66,7 +67,7 @@ async function startStudy(mode = 'study', area, fresh = false) {
     const data = await api(`/api/questions?level=${state.settings.level}&mode=${mode}&area=${area}`);
     if (token !== pageToken) return;
     let saved;
-    if (!fresh && mode === 'study') { try { saved = JSON.parse(localStorage.getItem('haru-session')); } catch {} }
+    if (!fresh && mode === 'study') { try { saved = JSON.parse(localStorage.getItem(sessionKey())); } catch {} }
     let questions = data.questions || [];
     if (saved?.level === state.settings.level && saved?.mode === mode && saved?.area === area && saved.index < saved.ids.length) {
       const byId = new Map(questions.map(q => [q.id, q]));
@@ -145,6 +146,7 @@ function records() { shell('쌓여가는 나의 일본어.', '작은 발자취�
 function settings() {
   const s = state.settings;
   shell('나에게 맞는 공부방.', '목표와 공부 시간을 정하고, AI와 학습 자료를 연결하세요.', `<form id="settings-form" class="panel settings-panel"><h2>학습 목표</h2><div class="form-grid"><div class="field"><label for="level">JLPT 목표 급수</label><select id="level" name="level">${['N5', 'N4', 'N3', 'N2', 'N1'].map(level => `<option ${s.level === level ? 'selected' : ''}>${level}</option>`).join('')}</select><small>N5부터 N1까지, 언제든 목표를 바꿀 수 있어요.</small></div><div class="field"><label for="dailyMinutes">하루 목표 시간 (분)</label><input id="dailyMinutes" name="dailyMinutes" type="number" min="5" max="180" required value="${s.dailyMinutes}"><small>학습량을 정하는 개인 목표예요.</small></div></div><h2 style="margin-top:35px">로컬 AI 연결</h2><p class="section-caption">Mac Studio에서 실행하는 Ollama에 연결합니다. 기본 정답과 해설은 AI 연결 없이도 사용할 수 있어요.</p><div class="form-grid"><div class="field"><label for="ollamaUrl">Ollama 주소</label><input id="ollamaUrl" name="ollamaUrl" type="url" required value="${esc(s.ollamaUrl)}" placeholder="http://127.0.0.1:11434"><small>앱 서버의 localhost 또는 127.0.0.1 주소를 입력하세요.</small></div><div class="field"><label for="ollamaModel">사용할 모델</label><input id="ollamaModel" name="ollamaModel" list="model-options" value="${esc(s.ollamaModel)}" placeholder="설치한 모델 이름"><datalist id="model-options"></datalist><small>Ollama에 설치한 정확한 모델 태그를 입력하세요.</small></div></div><div class="actions"><button class="btn" type="submit">설정 저장</button><button id="models-refresh" class="btn ghost" type="button">모델 목록 확인</button></div><div id="settings-status" class="help" role="status"></div></form><section class="panel settings-panel"><h2>나의 데이터</h2><p class="section-caption">설정과 학습 기록을 JSON 파일로 보관하고 복원할 수 있어요.<br>문제 가져오기는 정해진 JSON 형식의 학습 자료를 추가합니다.</p><div class="actions"><a href="/api/backup" download class="btn secondary">백업 내려받기 ↓</a><button class="btn ghost" id="restore">백업 복원</button><button class="btn ghost" id="import">문제 가져오기</button></div><input type="file" accept=".json,application/json" id="restore-file" hidden><input type="file" accept=".json,application/json" id="import-file" hidden><div id="data-status" class="help" role="status"></div><details style="margin-top:20px"><summary class="help">문제 JSON 형식 보기</summary><pre class="help" style="overflow:auto">${esc(JSON.stringify({ questions: [{ id: 'my-n5-001', level: 'N5', area: 'vocabulary', prompt: '「山」の読み方は？', choices: ['やま', 'かわ', 'うみ', 'そら'], answerIndex: 0, explanation: '山은 やま로 읽습니다.', tags: ['한자'], source: '직접 만든 연습 문제' }] }, null, 2))}</pre></details></section>`);
+  if (state.user && !state.user.isAdmin) { const addressField = $('#ollamaUrl'); addressField.disabled = true; addressField.closest('.field').hidden = true; }
   $('#settings-form').onsubmit = async e => { e.preventDefault(); const button = e.submitter; button.disabled = true; try { const values = Object.fromEntries(new FormData(e.target)); values.dailyMinutes = Number(values.dailyMinutes); await api('/api/settings', { method: 'PUT', body: JSON.stringify(values) }); if (s.level !== values.level) { clearSavedSession(); session = null; } state = await api('/api/state'); toast('설정을 저장했어요.'); settings(); } catch (error) { $('#settings-status').textContent = error.message; } finally { button.disabled = false; } };
   $('#models-refresh').onclick = async e => { e.target.disabled = true; const output = $('#settings-status'); output.textContent = '저장된 Ollama 주소에서 모델을 확인하고 있어요…'; try { const data = await api('/api/ollama/models'); $('#model-options').innerHTML = (data.models || []).map(m => `<option value="${esc(m.name)}"></option>`).join(''); output.textContent = data.available ? `${data.models.length}개의 모델을 찾았어요. 모델 입력란에서 선택하세요.` : data.error || 'Ollama에 연결하지 못했어요. 주소를 저장하고 Ollama 실행 상태를 확인해 주세요.'; } catch (error) { output.textContent = error.message; } finally { e.target.disabled = false; } };
   $('#restore').onclick = () => $('#restore-file').click(); $('#import').onclick = () => $('#import-file').click();

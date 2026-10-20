@@ -9,19 +9,21 @@ import { careerResume } from './content/career-content.mjs';
 import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { createPushService } from './lib/push-service.mjs';
 import { pushPaths } from './lib/push-paths.mjs';
+import { requireAccess } from './lib/access.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(root, 'data/auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
 const store = createPortfolioStore(resolve(process.env.PORTFOLIO_DATA_DIR || resolve(root, 'data/portfolio')));
-const push = await createPushService(pushPaths(root));
+const push = await createPushService({ ...pushPaths(root), isAccountActive: id => authenticate.accounts.isActive(id) });
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 const files = new Map([
   ['/', ['index.html', 'text/html']], ['/site/styles.css', ['styles.css', 'text/css']],
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
   ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],
-  ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']]
+  ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']],
+  ['/accounts/', ['../accounts/index.html', 'text/html']], ['/accounts/app.js', ['../accounts/app.js', 'text/javascript']], ['/accounts/styles.css', ['../accounts/styles.css', 'text/css']]
 ]);
 async function bytes(req, limit) {
   let size = 0; const chunks = [];
@@ -62,7 +64,10 @@ const server = createServer(async (req, res) => {
     if (path === '/robots.txt' && read) { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(method === 'HEAD' ? undefined : 'User-agent: *\nDisallow: /admin\nDisallow: /api/\nDisallow: /chat\nDisallow: /study\n'); }
     if (path.startsWith('/media/') && read) {
       const image = store.image(path); assert(image, '이미지를 찾을 수 없습니다.', 404);
-      if (!store.publicImage(path) && !await authenticate(req, res)) return;
+      if (!store.publicImage(path)) {
+        if (!await authenticate(req, res)) return;
+        if (!requireAccess(req, res, 'admin')) return;
+      }
       res.writeHead(200, { 'Content-Type': image.mime }); return res.end(method === 'HEAD' ? undefined : Buffer.from(image.content));
     }
     let asset = files.get(path);
@@ -70,11 +75,25 @@ const server = createServer(async (req, res) => {
       assert(store.project(path.split('/').pop())?.published, '공개된 프로젝트를 찾을 수 없습니다.', 404);
       asset = files.get('/');
     }
-    const privateRoute = path.startsWith('/admin') || path === '/site/admin.js' || path.startsWith('/api/portfolio/') || path === '/app' || path.startsWith('/app/');
-    if (path === '/resume/' && !store.resume().published && !await authenticate(req, res)) return;
+    if (path === '/api/portfolio/session' && read) return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null });
+    const privateRoute = path.startsWith('/admin') || path === '/site/admin.js' || path.startsWith('/api/portfolio/') || path === '/app' || path.startsWith('/app/') || path === '/accounts' || path.startsWith('/accounts/');
+    if (path === '/resume/' && !store.resume().published) {
+      if (!await authenticate(req, res)) return;
+      if (!requireAccess(req, res, 'admin')) return;
+    }
     if (path === '/api/portfolio/resume' && read && store.resume().published) return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
     if (privateRoute && !await authenticate(req, res)) return;
+    const memberRoute = path === '/app' || path.startsWith('/app/') || path === '/api/portfolio/me' || path.startsWith('/api/portfolio/push/');
+    if (privateRoute && !memberRoute && !requireAccess(req, res, 'admin')) return;
     sameOrigin(req);
+    if (path === '/accounts' && read) { res.writeHead(302, { Location: '/accounts/' }); return res.end(); }
+    if (path === '/api/portfolio/me' && method === 'GET') return json(res, 200, { user: req.user });
+    if (path === '/api/portfolio/accounts') {
+      if (method === 'GET') return json(res, 200, { accounts: authenticate.accounts.list() });
+      if (method === 'POST') return json(res, 201, { account: await authenticate.accounts.create(await body(req, 16384)) });
+    }
+    const accountMatch = path.match(/^\/api\/portfolio\/accounts\/(owner|[a-f0-9-]{36})$/);
+    if (accountMatch && method === 'PATCH') return json(res, 200, { account: await authenticate.accounts.update(accountMatch[1], await body(req, 16384)) });
     if (path === '/app' && read) { res.writeHead(302, { Location: '/app/' }); return res.end(); }
     if (path === '/app/' && read) {
       const content = await readFile(resolve(root, 'public/pwa/index.html'));
@@ -82,23 +101,23 @@ const server = createServer(async (req, res) => {
     }
     if (path.startsWith('/api/portfolio/push/')) {
       if (!read && req.headers.origin && push.info().configured) assert(req.headers.origin === push.info().origin, '설정된 HTTPS 사이트에서 요청해 주세요.', 403);
-      if (path === '/api/portfolio/push/config' && method === 'GET') return json(res, 200, push.info());
+      if (path === '/api/portfolio/push/config' && method === 'GET') return json(res, 200, { ...push.info(), user: req.user });
       if (path === '/api/portfolio/push/devices') {
-        if (method === 'GET') return json(res, 200, { devices: push.list() });
-        if (method === 'POST') return json(res, 201, await push.subscribe(await body(req, 16384)));
+        if (method === 'GET') return json(res, 200, { devices: push.list(req.user.id) });
+        if (method === 'POST') return json(res, 201, await push.subscribe(await body(req, 16384), req.user.id));
       }
       if (path === '/api/portfolio/push/match' && method === 'POST') {
         const input = await body(req, 16384);
         assert(typeof input.endpoint === 'string' && input.endpoint.length <= 4096, '기기 구독 정보가 올바르지 않습니다.');
-        return json(res, 200, { device: push.match(input.endpoint) });
+        return json(res, 200, { device: push.match(input.endpoint, req.user.id) });
       }
       if (path === '/api/portfolio/push/test' && method === 'POST') {
         const input = await body(req, 16384);
         assert(typeof input.id === 'string' && /^[a-f0-9-]{36}$/.test(input.id), '기기를 선택해 주세요.');
-        return json(res, 200, await push.test(input.id));
+        return json(res, 200, await push.test(input.id, req.user.id));
       }
       const deviceMatch = path.match(/^\/api\/portfolio\/push\/devices\/([a-f0-9-]{36})$/);
-      if (deviceMatch && method === 'DELETE') return json(res, 200, { deleted: push.remove(deviceMatch[1]) });
+      if (deviceMatch && method === 'DELETE') return json(res, 200, { deleted: push.remove(deviceMatch[1], req.user.id) });
       return json(res, 404, { error: '요청한 알림 경로를 찾을 수 없습니다.' });
     }
     if (path === '/admin' && read) { res.writeHead(302, { Location: '/admin/' }); return res.end(); }
@@ -123,5 +142,5 @@ server.requestTimeout = 60000; server.headersTimeout = 10000;
 const host = process.env.PORTFOLIO_HOST || '127.0.0.1', port = Number(process.env.PORTFOLIO_PORT || 3212);
 server.listen(port, host, () => console.log(`Starlight Portfolio is running at http://${host}:${server.address().port}`));
 let closing = false;
-function shutdown() { if (closing) return; closing = true; server.close(() => { push.close(); store.db.close(); process.exit(0); }); server.closeIdleConnections(); setTimeout(() => server.closeAllConnections(), 5000).unref(); }
+function shutdown() { if (closing) return; closing = true; server.close(() => { push.close(); store.db.close(); authenticate.accounts.close(); process.exit(0); }); server.closeIdleConnections(); setTimeout(() => server.closeAllConnections(), 5000).unref(); }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

@@ -11,6 +11,8 @@ import { createTts } from './lib/tts.mjs';
 import { resolveSpeechSource } from './lib/tts-source.mjs';
 import { STELLA_LESSON_INSTRUCTIONS } from './lib/persona.mjs';
 import { servePwaAsset } from './lib/pwa-assets.mjs';
+import { requireAccess } from './lib/access.mjs';
+import { createUserStores } from './lib/user-stores.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = resolve(root, 'public');
@@ -18,7 +20,7 @@ const dataDirectory = resolve(process.env.DATA_DIR || resolve(root, 'data'));
 let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(dataDirectory, 'auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
-const store = createStore(dataDirectory, seeds);
+const stores = createUserStores(dataDirectory, directory => createStore(directory, seeds), 'jlpt.sqlite');
 const tts = createTts({ cacheDir: resolve(dataDirectory, 'tts-cache') });
 const PORT = Number(process.env.PORT || 3210), HOST = process.env.HOST || '127.0.0.1';
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
@@ -33,8 +35,11 @@ async function body(req) {
 }
 const day = stamp => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(stamp));
 /** Read state for the selected level, using Seoul calendar days consistently. */
-function state() {
-  const settings = store.getSettings(), qs = new Map(store.questions().map(q => [q.id, q]));
+function settingsFor(store) {
+  return { ...store.getSettings(), ollamaUrl: stores.owner.getSettings().ollamaUrl };
+}
+function state(store) {
+  const settings = settingsFor(store), qs = new Map(store.questions().map(q => [q.id, q]));
   const attempts = store.attempts().filter(a => qs.get(a.questionId)?.level === settings.level);
   const now = new Date(), today = day(now), todays = attempts.filter(a => day(a.createdAt) === today);
   const reviewItems = store.reviews().filter(r => qs.get(r.questionId)?.level === settings.level).map(r => ({ ...r, prompt: qs.get(r.questionId).prompt, level: qs.get(r.questionId).level, area: qs.get(r.questionId).area }));
@@ -45,16 +50,17 @@ function state() {
 }
 let aiBusy = false;
 async function ollama(path, options = {}) {
-  const settings = store.getSettings();
+  const settings = stores.owner.getSettings();
   const response = await fetch(`${settings.ollamaUrl}${path}`, { ...options, redirect: 'error', signal: AbortSignal.timeout(options.method ? 90000 : 5000) });
   assert(response.ok, `Ollama 응답 오류 (${response.status})`, 502);
   return response.json();
 }
 /** Route API requests. Correct answers are disclosed only by submitting an attempt. */
-async function api(req, res, url) {
+async function api(req, res, url, store) {
   const path = url.pathname, method = req.method;
   if (method === 'GET' && path === '/api/health') return json(res, 200, { ok: true });
-  if (method === 'GET' && path === '/api/state') return json(res, 200, state());
+  if (method === 'GET' && path === '/api/me') return json(res, 200, { user: { id: req.user.id, username: req.user.username, permissions: req.user.permissions, isAdmin: req.user.isAdmin } });
+  if (method === 'GET' && path === '/api/state') return json(res, 200, { ...state(store), user: { id: req.user.id, username: req.user.username, permissions: req.user.permissions, isAdmin: req.user.isAdmin } });
   if (method === 'GET' && path === '/api/tts/voices') return json(res, 200, await tts.voices());
   if (method === 'POST' && path === '/api/tts/audio') {
     const { text, voice } = resolveSpeechSource(store, await body(req));
@@ -79,8 +85,12 @@ async function api(req, res, url) {
   }
   if (method === 'GET' && path === '/api/practice/summary') return json(res, 200, { language: 'ja', level: store.getSettings().level, summary: store.practice.summary(store.getSettings().level) });
   if (method === 'POST' && path === '/api/practice/grade') { const input = await body(req); return json(res, 200, store.transaction(() => store.practice.grade(input))); }
-  if (method === 'GET' && path === '/api/settings') return json(res, 200, store.getSettings());
-  if (method === 'PUT' && path === '/api/settings') return json(res, 200, store.setSettings({ ...store.getSettings(), ...await body(req) }));
+  if (method === 'GET' && path === '/api/settings') return json(res, 200, settingsFor(store));
+  if (method === 'PUT' && path === '/api/settings') {
+    const input = await body(req);
+    if (!req.user.isAdmin) assert(input.ollamaUrl === undefined || input.ollamaUrl === settingsFor(store).ollamaUrl, 'AI 연결 주소는 관리자만 변경할 수 있습니다.', 403);
+    return json(res, 200, store.setSettings({ ...settingsFor(store), ...input }));
+  }
   if (method === 'GET' && path === '/api/questions') {
     const level = url.searchParams.get('level') || store.getSettings().level, mode = url.searchParams.get('mode') || 'study', area = url.searchParams.get('area') || 'all';
     assert(LEVELS.includes(level) && ['study', 'review'].includes(mode) && ['all', ...AREAS].includes(area), '학습 필터를 확인해 주세요.');
@@ -110,7 +120,7 @@ async function api(req, res, url) {
     const input = await body(req), q = store.question(input.questionId);
     assert(store.attempts().some(a => a.questionId === q.id), '답안을 제출한 뒤 AI 설명을 요청할 수 있습니다.', 409);
     assert(input.question === undefined || (typeof input.question === 'string' && input.question.length <= 2000), '질문은 2000자 이하여야 합니다.');
-    const settings = store.getSettings(); assert(settings.ollamaModel, '설정에서 Ollama 모델을 선택해 주세요.', 409);
+    const settings = settingsFor(store); assert(settings.ollamaModel, '설정에서 Ollama 모델을 선택해 주세요.', 409);
     const cacheKey = createHash('sha256').update(JSON.stringify([STELLA_LESSON_INSTRUCTIONS, q, input.question || '', settings.ollamaUrl, settings.ollamaModel])).digest('hex');
     const cached = store.db.prepare('SELECT text FROM ai_cache WHERE key=?').get(cacheKey);
     if (cached) return json(res, 200, { text: cached.text, cached: true });
@@ -120,8 +130,12 @@ async function api(req, res, url) {
       assert(typeof result.message?.content === 'string' && result.message.content.trim(), 'AI가 비어 있는 응답을 반환했습니다.', 502); store.db.prepare('INSERT OR REPLACE INTO ai_cache VALUES (?,?)').run(cacheKey, result.message.content); return json(res, 200, { text: result.message.content });
     } finally { aiBusy = false; }
   }
-  if (method === 'GET' && path === '/api/backup') { res.setHeader('Content-Disposition', `attachment; filename="jlpt-backup-${new Date().toISOString().slice(0, 10)}.json"`); return json(res, 200, store.backup()); }
-  if (method === 'POST' && path === '/api/restore') return json(res, 200, store.restore(await body(req)));
+  if (method === 'GET' && path === '/api/backup') { res.setHeader('Content-Disposition', `attachment; filename="jlpt-backup-${new Date().toISOString().slice(0, 10)}.json"`); return json(res, 200, { ...store.backup(), settings: settingsFor(store) }); }
+  if (method === 'POST' && path === '/api/restore') {
+    const input = await body(req);
+    if (!req.user.isAdmin && input.settings && typeof input.settings === 'object' && !Array.isArray(input.settings)) input.settings = { ...input.settings, ollamaUrl: stores.owner.getSettings().ollamaUrl };
+    return json(res, 200, store.restore(input));
+  }
   return json(res, 404, { error: '요청한 API를 찾을 수 없습니다.' });
 }
 
@@ -131,11 +145,13 @@ const server = createServer(async (req, res) => {
     if (await servePwaAsset(req, res, root)) return;
     if (!await authenticate(req, res)) return;
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    const sharedAsset = ['/shared/shell.js', '/shared/shell.css'].includes(url.pathname) && ['GET', 'HEAD'].includes(req.method);
+    if (!sharedAsset && !requireAccess(req, res, 'study')) return;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       assert(req.headers['sec-fetch-site'] !== 'cross-site', '다른 사이트에서의 요청은 허용하지 않습니다.', 403);
       if (req.headers.origin) { let origin; try { origin = new URL(req.headers.origin); } catch { assert(false, '요청 출처를 확인할 수 없습니다.', 403); } assert(origin.host === req.headers.host && ['http:', 'https:'].includes(origin.protocol), '다른 사이트에서의 요청은 허용하지 않습니다.', 403); }
     }
-    if (url.pathname.startsWith('/api/')) return await api(req, res, url);
+    if (url.pathname.startsWith('/api/')) return await api(req, res, url, stores.get(req.user));
     assert(req.method === 'GET' || req.method === 'HEAD', '허용하지 않는 요청입니다.', 405);
     const pathname = decodeURIComponent(url.pathname), filename = resolve(publicDir, `.${pathname === '/' ? '/index.html' : pathname}`);
     assert(filename.startsWith(publicDir + sep), '허용하지 않는 경로입니다.', 403);
@@ -154,8 +170,8 @@ let stopping = false;
 function shutdown() {
   if (stopping) return; stopping = true;
   const closed = Promise.resolve(tts.close()).catch(() => {});
-  server.close(async () => { await closed; store.db.close(); process.exit(0); });
+  server.close(async () => { await closed; stores.close(); authenticate.accounts.close(); process.exit(0); });
   server.closeIdleConnections();
-  setTimeout(() => { server.closeAllConnections(); store.db.close(); process.exit(0); }, 5000).unref();
+  setTimeout(() => { server.closeAllConnections(); stores.close(); authenticate.accounts.close(); process.exit(0); }, 5000).unref();
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

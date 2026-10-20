@@ -19,7 +19,7 @@ const call = (path, options = {}, auth = true) => fetch(base + path, { ...option
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'starlight-portfolio-test-'));
   await writeFile(join(directory, 'auth.json'), JSON.stringify(await createCredentials('portfolio-test', 'portfolio-test-only-2026')), { mode: 0o600 });
-  child = spawn(process.execPath, ['portfolio-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), PORTFOLIO_DATA_DIR: directory, PORTFOLIO_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['portfolio-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'), PORTFOLIO_DATA_DIR: directory, PUSH_DATA_DIR: join(directory, 'push'), PUSH_CONFIG_FILE: join(directory, 'push', 'missing.json'), PORTFOLIO_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
   base = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Portfolio startup timed out')), 10000);
     child.once('exit', code => { clearTimeout(timeout); reject(new Error(`Portfolio exited ${code}`)); });

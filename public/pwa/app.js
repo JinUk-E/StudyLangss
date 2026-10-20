@@ -41,6 +41,7 @@ function renderControls() {
   $('#enable-push').disabled = state.busy || !canEnable;
   $('#enable-push').textContent = state.current ? '이 기기 연결 갱신' : '이 기기에서 알림 켜기';
   $('#disable-push').disabled = state.busy || (!state.current && !state.subscription);
+  $('#disable-push').textContent = state.subscription && !state.current ? '이 브라우저의 남은 구독 해제' : '이 기기 알림 연결 해제';
   $('#test-push').disabled = state.busy || !state.current || !configReady();
   $('#refresh-devices').disabled = state.busy;
   $('#device-label').disabled = state.busy;
@@ -56,7 +57,7 @@ function connectionMessage() {
   if (Notification.permission === 'denied') return message('브라우저 또는 OS 설정에서 알림이 차단되어 있습니다. 해당 설정에서 허용한 뒤 이 화면을 다시 열어주세요.');
   if (state.current && state.subscription && !sameKey(state.subscription, state.config.applicationServerKey)) return message('서버의 알림 키가 변경됐습니다. 연결 갱신 버튼을 눌러 이 기기를 다시 연결하세요.');
   if (state.current && Notification.permission === 'granted') return message('이 기기는 서버에 등록되어 있습니다. 테스트를 보내 실제 알림이 도착하는지 확인하세요.');
-  if (state.subscription && !state.current) return message('브라우저 구독은 남아 있지만 서버에는 등록되어 있지 않습니다. 알림 켜기로 다시 연결할 수 있습니다. OS 알림 권한은 별도로 유지됩니다.');
+  if (state.subscription && !state.current) return message('브라우저 구독은 남아 있지만 현재 계정에는 등록되어 있지 않습니다. 다른 계정에 연결했었다면 남은 구독을 해제한 뒤 다시 연결하세요. OS 알림 권한은 별도로 유지됩니다.');
   return message('알림 켜기를 누르면 이 기기의 권한을 확인하고 서버에 등록합니다.');
 }
 function date(value) { if (!value) return '아직 없음'; const parsed = new Date(value); return Number.isNaN(parsed.getTime()) ? '확인 불가' : parsed.toLocaleString('ko-KR'); }
@@ -93,6 +94,7 @@ async function refresh() {
   try {
     const [config, devices] = await Promise.all([api('/config'), api('/devices')]);
     state.config = config; state.devices = devices.devices;
+    if (config.user) accountMessage(config.user);
     await inspectCurrent(); renderDevices(); connectionMessage();
   } catch (error) { message(error.message, true); renderDevices(); }
   finally { setBusy(false); }
@@ -137,8 +139,9 @@ async function disconnectCurrent() {
 }
 async function disablePush() {
   if (state.busy) return;
+  const hadCurrent = Boolean(state.current);
   setBusy(true);
-  try { await disconnectCurrent(); state.devices = (await api('/devices')).devices; renderDevices(); message('이 기기의 알림 연결을 해제했습니다. OS의 알림 권한은 유지됩니다. 이미 전송된 알림은 도착할 수 있습니다.'); }
+  try { await disconnectCurrent(); state.devices = (await api('/devices')).devices; renderDevices(); message(hadCurrent ? '이 기기의 알림 연결을 해제했습니다. OS의 알림 권한은 유지됩니다. 이미 전송된 알림은 도착할 수 있습니다.' : '이 브라우저의 남은 구독을 해제했습니다. 다른 계정의 서버 등록을 삭제하거나 가져오지는 않았습니다. OS의 알림 권한은 유지됩니다.'); }
   catch (error) { renderDevices(); message(error.message, true); }
   finally { setBusy(false); }
 }
@@ -179,5 +182,7 @@ $('#enable-push').addEventListener('click', enablePush);
 $('#disable-push').addEventListener('click', disablePush);
 $('#test-push').addEventListener('click', testPush);
 $('#refresh-devices').addEventListener('click', refresh);
+function accountMessage(user) { const element = $('#push-account'); if (element) element.textContent = user ? `현재 계정: ${user.username} · 이 계정의 기기만 표시합니다.` : '로그인한 계정을 확인한 뒤 알림을 연결하세요.'; }
+window.addEventListener('starlight:session', event => accountMessage(event.detail?.user));
 window.addEventListener('focus', () => { if (!state.busy) refresh(); });
 renderInstall(); refresh();

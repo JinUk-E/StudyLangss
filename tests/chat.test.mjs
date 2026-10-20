@@ -48,7 +48,7 @@ before(async () => {
   }).listen(0, '127.0.0.1');
   await once(upstream, 'listening');
   const upstreamUrl = `http://127.0.0.1:${upstream.address().port}`;
-  child = spawn(process.execPath, ['chat-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, CHAT_PORT: '0', CHAT_HOST: '127.0.0.1', CHAT_DATA_DIR: directory, AUTH_FILE: join(directory, 'auth.json'), CHAT_OLLAMA_URL: upstreamUrl, CHAT_SEARCH_URL: upstreamUrl }, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['chat-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, CHAT_PORT: '0', CHAT_HOST: '127.0.0.1', CHAT_DATA_DIR: directory, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'), CHAT_OLLAMA_URL: upstreamUrl, CHAT_SEARCH_URL: upstreamUrl }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Chat startup timeout')), 10000);
     child.once('exit', code => { clearTimeout(timeout); reject(new Error(`Chat exited ${code}`)); });

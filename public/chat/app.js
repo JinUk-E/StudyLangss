@@ -1,8 +1,9 @@
 const $ = selector => document.querySelector(selector);
 const state = { id: null, busy: false, models: [], controller: null, messages: [] };
+let preferenceNamespace = 'starlight.unresolved';
 const preference = {
-  get(key) { try { return localStorage.getItem(`starlight.${key}`); } catch { return null; } },
-  set(key, value) { try { if (value === null) localStorage.removeItem(`starlight.${key}`); else localStorage.setItem(`starlight.${key}`, value); } catch {} }
+  get(key) { try { return localStorage.getItem(`${preferenceNamespace}.${key}`); } catch { return null; } },
+  set(key, value) { try { if (value === null) localStorage.removeItem(`${preferenceNamespace}.${key}`); else localStorage.setItem(`${preferenceNamespace}.${key}`, value); } catch {} }
 };
 const notice = text => { $('#notice').textContent = text; };
 async function api(path, options = {}) {
@@ -198,6 +199,9 @@ document.querySelectorAll('[data-prompt]').forEach(button => { button.onclick = 
   if (button.dataset.search) { $('#web-search').checked = true; preference.set('search', 'true'); }
   setBusy(false); $('#prompt').focus();
 }; });
+try { const { user } = await api('/me'); preferenceNamespace = user.id === 'owner' ? 'starlight' : `starlight.users.${user.id}`; }
+catch (error) { notice(error.message); }
+$('#web-search').checked = preference.get('search') === 'true';
 await loadModels();
 try {
   await loadThreads(); const id = preference.get('thread');

@@ -64,7 +64,10 @@ test('remote removal clears server status but explains remaining browser permiss
   let removed = false;
   const b = browser({ subscription: true, permission: 'granted', respond(path) { if (removed && path === '/devices') return { data: { devices: [] } }; if (removed && path === '/match') return { data: { device: null } }; } }); await settle();
   removed = true; await b.element('#refresh-devices').click();
-  assert.equal(b.element('#subscription-state').textContent, '이 기기 등록 없음'); assert.equal(b.element('#permission-state').textContent, '허용됨'); assert.match(b.element('#push-state').textContent, /서버에는 등록되어 있지 않습니다/); assert.equal(b.element('#test-push').disabled, true); assert.equal(b.counters.unsubscribed, 0);
+  assert.equal(b.element('#subscription-state').textContent, '이 기기 등록 없음'); assert.equal(b.element('#permission-state').textContent, '허용됨'); assert.match(b.element('#push-state').textContent, /현재 계정에는 등록되어 있지 않습니다/); assert.equal(b.element('#test-push').disabled, true); assert.equal(b.counters.unsubscribed, 0);
+  await b.element('#disable-push').click();
+  assert.equal(b.counters.unsubscribed, 1); assert.match(b.element('#push-state').textContent, /다른 계정의 서버 등록을 삭제하거나 가져오지는 않았습니다/);
+  assert.equal(b.requests.some(request => request.path === '/devices/device-1' && request.method === 'DELETE'), false);
 });
 test('iPhone outside home-screen mode cannot request permission; readiness timeout is recoverable', async () => {
   const iphone = browser({ ios: true }); await settle();

@@ -19,7 +19,7 @@ let child, directory, base, output = '';
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'haru-integration-'));
   await writeFile(join(directory, 'auth.json'), JSON.stringify(await createCredentials(testUser, testPassword)), { mode: 0o600 });
-  child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: directory, AUTH_FILE: join(directory, 'auth.json') }, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: '0', HOST: '127.0.0.1', DATA_DIR: directory, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite') }, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stderr.on('data', chunk => { output += chunk; });
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error(`Server readiness timeout: ${output}`)), 15000);
