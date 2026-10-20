@@ -9,6 +9,9 @@ server {
     ssl_certificate_key /ABSOLUTE/PATH/TO/StudyLangss/data/letsencrypt/config/live/starlightforge.duckdns.org/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
+    # Stream large responses without relying on shared proxy_temp ownership.
+    proxy_max_temp_file_size 0;
+
     client_max_body_size 32m;
     limit_req zone=starlight_requests burst=20 nodelay;
     limit_req_status 429;

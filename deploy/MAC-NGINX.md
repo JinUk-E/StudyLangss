@@ -130,3 +130,9 @@ Nginx의 proxy_pass를 `http://192.168.0.50:3210`으로 바꾸고 Mac 방화벽�
 - [Node.js scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
 
 앱의 인증·우회 차단·학습 기능은 자동 테스트로 검사합니다. 이 작업 환경은 Windows이므로 Nginx 설정의 실제 `nginx -t`, macOS 권한·서비스, 도메인 라우팅과 실 인증서 발급은 사용자의 Mac에서 확인해야 합니다.
+
+## 이미지가 일부만 전송되는 경우
+
+HTTP 200이어도 이미지가 깨지고 `curl`에서 `transfer closed with outstanding read data remaining`이 발생하면 nginx 오류 로그를 확인합니다. `proxy_temp` 파일 쓰기에 `Permission denied`가 있으면 앱 응답이 정상이어도 큰 이미지 전송이 중단될 수 있습니다.
+
+별빛공방 설정 예제는 해당 `server` 안에 `proxy_max_temp_file_size 0;`을 지정해 프록시 응답을 디스크 임시 파일로 내보내지 않습니다. 공유 nginx 디렉터리의 소유권을 바꾸지 않고 도메인 단위로 적용합니다. [nginx 공식 문서](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_max_temp_file_size). 적용 후 `nginx -t`와 reload를 수행하고, HTTPS 다운로드 파일이 원본과 같은지 및 브라우저에서 실제 이미지 해독에 성공하는지 확인합니다. 이 설정은 요청 본문 업로드용 임시 디렉터리 설정과는 별개입니다.
