@@ -1,5 +1,18 @@
 import { $, el, api, external, image, projectDetails } from './shared.js';
 let projects = [], category = '전체';
+function projectCard(project, index, spotlight = false) {
+  const card = el('a', undefined, `project-card${project.cover ? ' has-cover' : ''}${spotlight ? ' spotlight-card' : ''}`); card.href = `/projects/${project.id}`;
+  const art = el('div', undefined, `project-cover tone-${index % 3}`);
+  if (project.cover) { const cover = image(project.cover, `${project.title} 프로젝트 화면`); if (spotlight) cover.loading = 'eager'; art.append(cover); }
+  else art.append(el('span', project.title, 'cover-title'), el('span', project.category, 'cover-caption'));
+  const content = el('div', undefined, 'project-content');
+  const meta = el('div', undefined, 'project-meta'); meta.append(el('span', spotlight && project.featured ? '대표 프로젝트' : project.category), el('span', project.year));
+  const heading = el('div', undefined, 'project-heading'); const arrow = el('span', '↗', 'project-arrow'); arrow.setAttribute('aria-hidden', 'true'); heading.append(el(spotlight ? 'h2' : 'h3', project.title), arrow);
+  const tags = el('div', undefined, 'tags'); project.tags.forEach(tag => tags.append(el('span', tag)));
+  content.append(meta, heading, el('p', project.summary, 'project-summary'), tags); card.append(art, content);
+  card.onclick = event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); history.pushState(null, '', card.href); open(project); };
+  return card;
+}
 function render() {
   const list = $('#projects'); list.replaceChildren();
   const filtered = projects.filter(p => category === '전체' || p.category === category);
@@ -7,15 +20,7 @@ function render() {
     const empty = el('div', undefined, 'empty-work'); empty.append(el('span', '✧'), el('h3', '새로운 작업을 준비하고 있어요.'), el('p', '완성된 이야기를 이곳에 차곡차곡 모아둘게요.')); list.append(empty); return;
   }
   for (const [index, project] of filtered.entries()) {
-    const card = el('a', undefined, `project-card${project.cover ? ' has-cover' : ''}`); card.href = `/projects/${project.id}`;
-    const art = el('div', undefined, `project-cover tone-${index % 3}`);
-    if (project.cover) art.append(image(project.cover, project.title)); else art.append(el('span', String(index + 1).padStart(2, '0'), 'cover-index'), el('span', project.category, 'cover-caption'));
-    const meta = el('div', undefined, 'project-meta'); meta.append(el('span', project.category), el('span', project.year));
-    const heading = el('div', undefined, 'project-heading'); heading.append(el('h3', project.title), el('span', '↗'));
-    const tags = el('div', undefined, 'tags'); project.tags.forEach(tag => tags.append(el('span', tag)));
-    card.append(art, meta, heading, el('p', project.summary), tags);
-    card.onclick = event => { if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; event.preventDefault(); history.pushState(null, '', card.href); open(project); };
-    list.append(card);
+    list.append(projectCard(project, index));
   }
 }
 function open(project) { $('#project-detail').replaceChildren(projectDetails(project)); if (!$('#project-dialog').open) $('#project-dialog').showModal(); document.title = `${project.title} · 별빛공방`; }
@@ -29,6 +34,9 @@ try {
   for (const node of document.querySelectorAll('[data-site-name]')) node.textContent = data.profile.name;
   $('#tagline').textContent = data.profile.tagline || data.profile.name; $('#bio').textContent = data.profile.bio;
   $('#intro-copy').textContent = data.profile.intro || data.profile.bio;
+  const spotlight = projects.find(project => project.featured && project.cover) || projects.find(project => project.cover);
+  if (spotlight) $('#spotlight-project').replaceChildren(projectCard(spotlight, projects.indexOf(spotlight), true));
+  if (data.profile.githubUrl) $('#intro-github').append(external('GitHub ↗', data.profile.githubUrl, 'button quiet'));
   if (listingPath === '/portfolio/') {
     $('#intro').hidden = true; $('#about').hidden = true;
     $('#work-title').firstChild.textContent = '포트폴리오 ';

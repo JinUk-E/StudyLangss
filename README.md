@@ -6,6 +6,9 @@ Mac Studio에서 운영하는 포트폴리오·AI 대화·일본어 학습 웹�
 - 운영 주소: [starlightforge.duckdns.org](https://starlightforge.duckdns.org)
 - 구성: Node.js 24 이상, SQLite, Ollama, Nginx HTTPS, Web Push
 - 화면: **홈 / AI 대화 / 학습** 상단 탭과 영역별 하위 메뉴. 모바일에서는 하위 메뉴가 가로 메뉴로 표시됩니다.
+- 디자인: 밝은 벤토 카드와 Spotlight 스타일의 여백·타이포그래피. 홈의 대표 프로젝트 이미지, 이력서 경력 타임라인·기술 카드, AI 대화·학습의 공통 민트/살구 색상과 버튼을 사용합니다.
+
+UI 개편 내용과 검증 범위는 [검증 기록](docs/ui-refresh/verification.md)에 정리했습니다. 기존 설치는 아래 업데이트 절차 또는 관리자 **사이트 업데이트**에서 적용한 뒤 브라우저를 새로고침하세요.
 
 ## 페이지와 접근 권한
 
