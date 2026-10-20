@@ -8,7 +8,7 @@ top.querySelector(`[data-section-tab="${section}"]`)?.setAttribute('aria-current
 fetch('/api/portfolio/public').then(response => response.ok ? response.json() : null).then(data => {
   if (typeof data?.profile?.name === 'string') top.querySelector('[data-site-name]').textContent = data.profile.name;
 }).catch(() => {});
-const isEditor = location.pathname.startsWith('/admin');
+const isEditor = location.pathname.startsWith('/admin') && !location.pathname.startsWith('/admin/system');
 const isPrivate = /^\/(?:app|accounts|admin|chat|study)(?:\/|$)/.test(location.pathname) || section === 'chat' || section === 'study';
 let sidebar;
 function homeMenu(user) {
@@ -19,8 +19,8 @@ function homeMenu(user) {
   const nav = document.createElement('nav'); nav.setAttribute('aria-label', '홈 하위 메뉴');
   const querySection = new URLSearchParams(location.search).get('section');
   const selected = ['profile', 'projects', 'resume'].includes(querySection) ? querySection : 'profile';
-  const menus = isEditor && user?.isAdmin ? [['소개 편집', '/admin/?section=profile'], ['포트폴리오 편집', '/admin/?section=projects'], ['이력서 편집', '/admin/?section=resume'], ['계정 관리', '/accounts/'], ['앱 설치·알림', '/app/'], ['사이트로 돌아가기', '/']] : [['소개', '/'], ['포트폴리오', '/portfolio/'], ['이력서', '/resume/'], ['앱 설치·알림', '/app/']];
-  if (!isEditor && user?.isAdmin) menus.push(['콘텐츠 편집', '/admin/'], ['계정 관리', '/accounts/']);
+  const menus = isEditor && user?.isAdmin ? [['소개 편집', '/admin/?section=profile'], ['포트폴리오 편집', '/admin/?section=projects'], ['이력서 편집', '/admin/?section=resume'], ['계정 관리', '/accounts/'], ['사이트 업데이트', '/admin/system/'], ['앱 설치·알림', '/app/'], ['사이트로 돌아가기', '/']] : [['소개', '/'], ['포트폴리오', '/portfolio/'], ['이력서', '/resume/'], ['앱 설치·알림', '/app/']];
+  if (!isEditor && user?.isAdmin) menus.push(['콘텐츠 편집', '/admin/'], ['계정 관리', '/accounts/'], ['사이트 업데이트', '/admin/system/']);
   for (const [label, href] of menus) {
     const anchor = document.createElement('a'); anchor.href = href; anchor.textContent = label;
     const active = isEditor ? href.includes(`section=${selected}`) : href === location.pathname || (href === '/portfolio/' && location.pathname.startsWith('/projects/'));

@@ -13,8 +13,10 @@ import { STELLA_LESSON_INSTRUCTIONS } from './lib/persona.mjs';
 import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { requireAccess } from './lib/access.mjs';
 import { createUserStores } from './lib/user-stores.mjs';
+import { createRuntimeHealth } from './lib/runtime-health.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
+const runtimeHealth = await createRuntimeHealth(root, 'study');
 const publicDir = resolve(root, 'public');
 const dataDirectory = resolve(process.env.DATA_DIR || resolve(root, 'data'));
 let authenticate;
@@ -142,6 +144,7 @@ async function api(req, res, url, store) {
 const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('X-Frame-Options', 'DENY');
   try {
+    if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
     if (!await authenticate(req, res)) return;
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);

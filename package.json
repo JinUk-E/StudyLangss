@@ -17,7 +17,9 @@
     "check-tts": "node scripts/check-tts.mjs",
     "setup-auth": "node scripts/setup-auth.mjs",
     "setup-push": "node scripts/setup-push.mjs",
-    "send-push": "node scripts/send-push.mjs"
+    "send-push": "node scripts/send-push.mjs",
+    "setup-updater": "node scripts/setup-updater.mjs",
+    "update-status": "node scripts/update-status.mjs"
   },
   "dependencies": {
     "web-push": "3.6.7"

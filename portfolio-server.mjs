@@ -10,8 +10,12 @@ import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { createPushService } from './lib/push-service.mjs';
 import { pushPaths } from './lib/push-paths.mjs';
 import { requireAccess } from './lib/access.mjs';
+import { createSiteUpdater } from './lib/site-update.mjs';
+import { createRuntimeHealth } from './lib/runtime-health.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const runtimeHealth = await createRuntimeHealth(root, 'portfolio');
+const updater = createSiteUpdater(root);
 let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(root, 'data/auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
@@ -23,7 +27,8 @@ const files = new Map([
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
   ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],
   ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']],
-  ['/accounts/', ['../accounts/index.html', 'text/html']], ['/accounts/app.js', ['../accounts/app.js', 'text/javascript']], ['/accounts/styles.css', ['../accounts/styles.css', 'text/css']]
+  ['/accounts/', ['../accounts/index.html', 'text/html']], ['/accounts/app.js', ['../accounts/app.js', 'text/javascript']], ['/accounts/styles.css', ['../accounts/styles.css', 'text/css']],
+  ['/admin/system/', ['../updates/index.html', 'text/html']], ['/admin/system/app.js', ['../updates/app.js', 'text/javascript']], ['/admin/system/styles.css', ['../updates/styles.css', 'text/css']], ['/admin/system/guide.html', ['../../docs/updates/guide.html', 'text/html']]
 ]);
 async function bytes(req, limit) {
   let size = 0; const chunks = [];
@@ -49,6 +54,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   try {
+    if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
     const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
     const read = ['GET', 'HEAD'].includes(method);
@@ -86,6 +92,14 @@ const server = createServer(async (req, res) => {
     const memberRoute = path === '/app' || path.startsWith('/app/') || path === '/api/portfolio/me' || path.startsWith('/api/portfolio/push/');
     if (privateRoute && !memberRoute && !requireAccess(req, res, 'admin')) return;
     sameOrigin(req);
+    if (path === '/admin/system' && read) { res.writeHead(302, { Location: '/admin/system/' }); return res.end(); }
+    if (path === '/api/portfolio/updates' && method === 'GET') return json(res, 200, await updater.status());
+    const updateAction = path.match(/^\/api\/portfolio\/updates\/(check|apply)$/);
+    if (updateAction && method === 'POST') {
+      const input = await body(req, 2048);
+      assert(authenticate.accounts.current(req.user, 'admin'), '관리자 계정을 확인해 주세요.', 403);
+      return json(res, 202, await updater.enqueue(req, updateAction[1], input));
+    }
     if (path === '/accounts' && read) { res.writeHead(302, { Location: '/accounts/' }); return res.end(); }
     if (path === '/api/portfolio/me' && method === 'GET') return json(res, 200, { user: req.user });
     if (path === '/api/portfolio/accounts') {
@@ -121,7 +135,11 @@ const server = createServer(async (req, res) => {
       return json(res, 404, { error: '요청한 알림 경로를 찾을 수 없습니다.' });
     }
     if (path === '/admin' && read) { res.writeHead(302, { Location: '/admin/' }); return res.end(); }
-    if (asset && read) { const content = await readFile(resolve(root, 'public/site', asset[0])); res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content); }
+    if (asset && read) {
+      const content = await readFile(resolve(root, 'public/site', asset[0]));
+      if (path === '/admin/system/guide.html') res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+      res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content);
+    }
     if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects(), resume: store.resume() });
     if (path === '/api/portfolio/career-template' && method === 'GET') return json(res, 200, { resume: careerResume });
     if (path === '/api/portfolio/resume' && method === 'GET') return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });

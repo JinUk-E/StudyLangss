@@ -9,8 +9,10 @@ import { createUpstream, localEndpoint, modelContext } from './lib/chat-upstream
 import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { requireAccess } from './lib/access.mjs';
 import { createUserStores } from './lib/user-stores.mjs';
+import { createRuntimeHealth } from './lib/runtime-health.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const runtimeHealth = await createRuntimeHealth(root, 'chat');
 const data = resolve(process.env.CHAT_DATA_DIR || resolve(root, 'data/chat'));
 let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(root, 'data/auth.json'))); }
@@ -113,6 +115,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   try {
+    if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
     if (!await authenticate(req, res)) return;
     sameOrigin(req);

@@ -16,6 +16,7 @@ Mac Studio에서 운영하는 포트폴리오·AI 대화·일본어 학습 웹�
 | `/resume/` | 이력서·인쇄/PDF 저장 | 비공개일 때 관리자, 공개하면 누구나 |
 | `/admin/` | 소개·프로젝트·이력서 편집 | 관리자 |
 | `/accounts/` | 계정 추가·권한·중지·비밀번호 재설정 | 관리자 |
+| `/admin/system/` | Mac 사이트 코드 업데이트·진행 상태 | 관리자 |
 | `/chat/` | 스텔라 AI 대화·웹 검색 | 관리자 또는 AI 대화 권한 |
 | `/study/` | JLPT·단어·문장·듣기·복습 | 관리자 또는 학습 권한 |
 | `/app/` | PWA 설치 안내·본인 알림 기기 관리 | 활성 계정 |
@@ -69,6 +70,20 @@ launchctl kickstart -k "gui/$(id -u)/kr.haru.jlpt"
 ```
 
 실제 등록 이름이 다르면 해당 이름을 사용합니다. 최초 자동 실행 등록에는 `deploy/*.plist.example`의 Node·프로젝트 경로를 바꿔 사용하세요. LaunchAgent는 Mac 사용자 로그인 후 실행됩니다.
+
+### 웹에서 사이트 업데이트
+
+관리자 계정의 **홈 → 사이트 업데이트**에서 **새 버전 확인 → 확인한 버전으로 업데이트**를 누를 수 있습니다. GitHub에 올라간 `starlightForge` 코드를 적용하며, 다른 계정은 화면·API 모두 차단합니다.
+
+Mac에서 이 기능을 수동으로 받은 뒤 기본 이름의 세 LaunchAgent와 기본 `data/` 설치를 사용한다면 한 번 설정합니다.
+
+```sh
+npm run setup-updater -- --origin https://starlightforge.duckdns.org
+```
+
+설정 명령이 안내하는 세 서버 재시작을 한 번 수행하세요. 이후 별도 작업자가 검증·전체 데이터 백업·코드/의존성 반영·재시작 버전 확인을 처리합니다. 적용 중 접속이 잠시 끊길 수 있으며, 오류 시 Mac 수동 복구가 필요할 수 있습니다. 자동 롤백은 제공하지 않습니다.
+
+[Mac 설정·복구 안내](deploy/MAC-UPDATES.md) · [그림 중심 안내](docs/updates/guide.html)
 
 ## 계정 관리
 
