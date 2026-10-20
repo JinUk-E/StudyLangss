@@ -7,7 +7,7 @@ function render() {
     const empty = el('div', undefined, 'empty-work'); empty.append(el('span', '✧'), el('h3', '새로운 작업을 준비하고 있어요.'), el('p', '완성된 이야기를 이곳에 차곡차곡 모아둘게요.')); list.append(empty); return;
   }
   for (const [index, project] of filtered.entries()) {
-    const card = el('a', undefined, 'project-card'); card.href = `/projects/${project.id}`;
+    const card = el('a', undefined, `project-card${project.cover ? ' has-cover' : ''}`); card.href = `/projects/${project.id}`;
     const art = el('div', undefined, `project-cover tone-${index % 3}`);
     if (project.cover) art.append(image(project.cover, project.title)); else art.append(el('span', String(index + 1).padStart(2, '0'), 'cover-index'), el('span', project.category, 'cover-caption'));
     const meta = el('div', undefined, 'project-meta'); meta.append(el('span', project.category), el('span', project.year));

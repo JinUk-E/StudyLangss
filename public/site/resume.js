@@ -12,7 +12,7 @@ try {
   if (profile.contactUrl) contact.append(external('연락처 →', profile.contactUrl));
   header.append(contact); document.append(header);
   const section = title => { const node = el('section', undefined, 'resume-section'); node.append(el('h2', title)); document.append(node); return node; };
-  if (resume.skills.length) { const row = section('프로젝트에서 사용한 기술'), tags = el('div', undefined, 'tags'); resume.skills.forEach(skill => tags.append(el('span', skill))); row.append(tags); }
+  if (resume.skills.length) { const row = section('주요 기술'), tags = el('div', undefined, 'tags'); resume.skills.forEach(skill => tags.append(el('span', skill))); row.append(tags); }
   for (const [title, items] of [['경력', resume.experience], ['학력 · 교육', resume.education]]) {
     if (!items.length) continue;
     const parent = section(title);

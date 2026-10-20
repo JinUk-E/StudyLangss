@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { loadAuth } from './lib/auth.mjs';
 import { assert } from './lib/validation.mjs';
 import { createPortfolioStore } from './lib/portfolio-store.mjs';
+import { careerResume } from './content/career-content.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 let authenticate;
@@ -72,6 +73,7 @@ const server = createServer(async (req, res) => {
     if (path === '/admin' && read) { res.writeHead(302, { Location: '/admin/' }); return res.end(); }
     if (asset && read) { const content = await readFile(resolve(root, 'public/site', asset[0])); res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content); }
     if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects(), resume: store.resume() });
+    if (path === '/api/portfolio/career-template' && method === 'GET') return json(res, 200, { resume: careerResume });
     if (path === '/api/portfolio/resume' && method === 'GET') return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
     if (path === '/api/portfolio/resume' && method === 'PUT') return json(res, 200, { resume: store.saveResume(await body(req)) });
     if (path === '/api/portfolio/profile' && method === 'PUT') return json(res, 200, { profile: store.saveProfile(await body(req)) });

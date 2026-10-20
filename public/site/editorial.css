@@ -4,3 +4,4 @@
 @media(max-width:600px){.page-kicker{margin-bottom:25px;font-size:9px}.intro-section h1{font-size:30px;letter-spacing:-1.2px}.intro-section{padding-bottom:32px}.intro-links{gap:9px}.project-cover{height:77px;padding:14px}.project-card{padding:19px}.section-head h2{font-size:21px}.resume-header h1{font-size:29px}.editorial-footer{font-size:9px}.admin-panel{padding:20px}.resume-actions .button{font-size:11px}}
 .intro-section h1,.intro-copy,.project-card>p,.resume-header h1{word-break:keep-all;overflow-wrap:break-word}
 @media print{.resume-page{max-width:none}.resume-section,.resume-header{break-inside:avoid}.resume-header h1{font-size:28px}.resume-section{padding:16px 0}.resume-entry{break-inside:avoid}.privacy-note{display:none}}
+.project-card.has-cover .project-cover{height:auto;aspect-ratio:16/9;padding:0}

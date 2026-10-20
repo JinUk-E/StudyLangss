@@ -1,7 +1,7 @@
 import { $, el, api, image, projectDetails } from './shared.js';
 let projects = [], editing = null, cover = '', gallery = [], uploading = false, saving = false, dirty = false;
 const status = text => { $('#status').textContent = text; };
-function lock(value) { saving = value; for (const fieldset of document.querySelectorAll('fieldset')) fieldset.disabled = value; for (const node of document.querySelectorAll('#new-project, #cancel-edit, .project-edit, .project-delete')) node.disabled = value; }
+function lock(value) { saving = value; for (const fieldset of document.querySelectorAll('fieldset')) fieldset.disabled = value; for (const node of document.querySelectorAll('#new-project, #cancel-edit, #load-career-resume, .project-edit, .project-delete')) node.disabled = value; }
 function projectValue() {
   const form = $('#project-form'), value = Object.fromEntries(new FormData(form));
   return { ...value, tags: value.tags.split(',').map(v => v.trim()).filter(Boolean), published: form.elements.published.checked, featured: form.elements.featured.checked, order: Number(value.order), cover, gallery };
@@ -74,6 +74,18 @@ const requestedSection = new URLSearchParams(location.search).get('section');
 const editorSection = ['profile', 'projects', 'resume'].includes(requestedSection) ? requestedSection : 'profile';
 for (const panel of document.querySelectorAll('[data-editor-section]')) panel.hidden = panel.dataset.editorSection !== editorSection;
 let resumeEntries = { experience: [], education: [] };
+$('#load-career-resume').onclick = async () => {
+  if (saving || uploading || (dirty && !confirm('편집 중인 이력서 내용을 원문 기반 자료로 바꿀까요? 저장하기 전까지 서버의 이력서는 유지됩니다.'))) return;
+  lock(true); status('작성한 이력서 자료를 불러오고 있습니다.');
+  try {
+    const { resume } = await api('/career-template'), form = $('#resume-form');
+    for (const name of ['headline', 'summary']) form.elements[name].value = resume[name];
+    form.elements.skills.value = resume.skills.join(', ');
+    resumeEntries = { experience: resume.experience, education: resume.education };
+    renderEntries('experience'); renderEntries('education'); dirty = true;
+    status('원문 기반 이력서를 편집 화면에 불러왔습니다. 내용과 공개 범위를 확인한 뒤 이력서 저장을 눌러 반영하세요.');
+  } catch (error) { status(error.message); } finally { lock(false); }
+};
 function renderEntries(type) {
   const parent = $(`#${type}-entries`); parent.replaceChildren();
   resumeEntries[type].forEach((entry, index) => {

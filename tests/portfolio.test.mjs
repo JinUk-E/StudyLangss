@@ -5,8 +5,11 @@ import { once } from 'node:events';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createCredentials } from '../lib/auth.mjs';
-import { createPortfolioStore } from '../lib/portfolio-store.mjs';
+import { createPortfolioStore, defaultProfile, profileInput, projectInput, resumeInput } from '../lib/portfolio-store.mjs';
+import { starterProfile, starterProjects, starterResume } from '../content/portfolio-defaults.mjs';
+import { careerProfile, careerResume, careerProjects, careerAssets } from '../content/career-content.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -90,15 +93,92 @@ test('resume stays private until explicitly published and persists after reopeni
   store.saveResume(value); store.db.close(); store = createPortfolioStore(isolated); assert.deepEqual(store.resume(), value); store.db.close();
 });
 
-test('starter content is seeded once and user edits and deletions survive restart', () => {
+test('starter and career content is seeded once and user edits and deletions survive restart', () => {
   const isolated = join(directory, 'content-migration'); let store = createPortfolioStore(isolated);
-  assert.equal(store.projects().length, 3); assert.ok(store.profile().intro.length > 20);
-  assert.deepEqual(store.resume().experience, []); assert.deepEqual(store.resume().education, []);
-  const id = store.projects()[0].id;
+  assert.equal(store.projects().length, 7); assert.ok(store.profile().intro.length > 20);
+  assert.deepEqual(store.profile(), profileInput(careerProfile));
+  assert.deepEqual(store.resume(), resumeInput(careerResume));
+  assert.equal(store.resume().published, false);
+  assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, 5);
+  for (const asset of careerAssets) { assert.ok(store.image(asset.path).content.length > 0); assert.ok(store.publicImage(asset.path)); }
+  const id = careerProjects[0].id, editedId = careerProjects[1].id;
   const custom = { ...store.profile(), tagline: '직접 작성한 문구', intro: '사용자가 수정한 소개' };
-  store.saveProfile(custom); store.remove(id); store.db.close(); store = createPortfolioStore(isolated);
+  store.saveProfile(custom); store.saveProject({ ...store.project(editedId), title: '직접 수정한 프로젝트' }, editedId);
+  store.remove(id); store.db.close(); store = createPortfolioStore(isolated);
   assert.equal(store.profile().tagline, custom.tagline); assert.equal(store.profile().intro, custom.intro);
-  assert.equal(store.projects().length, 2); assert.equal(store.project(id), undefined); store.db.close();
+  assert.equal(store.projects().length, 6); assert.equal(store.project(id), undefined);
+  assert.equal(store.project(editedId).title, '직접 수정한 프로젝트'); store.db.close();
+});
+
+// Construct the exact data state of an installation before career-import-v1.
+function beforeCareerImport(store, profile = starterProfile, resume = starterResume) {
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('career-import-v1');
+  for (const project of careerProjects) store.remove(project.id);
+  for (const asset of careerAssets) store.db.prepare('DELETE FROM images WHERE path=?').run(asset.path);
+  store.db.prepare('UPDATE profile SET json=? WHERE id=1').run(JSON.stringify(profile));
+  store.db.prepare('UPDATE documents SET json=? WHERE id=?').run(JSON.stringify(resume), 'resume');
+}
+
+test('career import upgrades previous default text and preserves the existing three web projects', () => {
+  const isolated = join(directory, 'previous-career-content'); let store = createPortfolioStore(isolated);
+  beforeCareerImport(store, { ...defaultProfile, intro: starterProfile.intro });
+  const originals = store.projects(); store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.profile(), profileInput(careerProfile));
+  assert.deepEqual(store.resume(), resumeInput(careerResume));
+  for (const project of originals) assert.deepEqual(store.project(project.id), project);
+  for (const project of careerProjects) assert.deepEqual(({ ...store.project(project.id), updatedAt: undefined }), { id: project.id, ...projectInput(project, () => true), updatedAt: undefined });
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length);
+  assert.ok(store.db.prepare('SELECT 1 FROM migrations WHERE id=?').get('career-import-v1')); store.db.close();
+});
+
+test('career import preserves custom profile fields, custom resume, and projects already using a career ID', () => {
+  const isolated = join(directory, 'custom-career-content'); let store = createPortfolioStore(isolated);
+  const customProfile = profileInput({ ...starterProfile, name: '사용자 이름', intro: '사용자가 쓴 홈 소개', email: 'custom@example.com', bio: '직접 작성한 소개' });
+  const customResume = resumeInput({ ...starterResume, summary: '직접 작성한 이력서', published: true });
+  beforeCareerImport(store, customProfile, customResume);
+  const customProject = store.saveProject(fixture(), careerProjects[0].id);
+  const otherProject = store.saveProject(fixture()); store.db.close(); store = createPortfolioStore(isolated);
+  for (const key of ['name', 'intro', 'email', 'bio']) assert.equal(store.profile()[key], customProfile[key]);
+  assert.equal(store.profile().role, careerProfile.role);
+  assert.deepEqual(store.resume(), customResume);
+  assert.equal(store.project(customProject.id).title, customProject.title);
+  assert.equal(store.project(otherProject.id).title, otherProject.title);
+  assert.equal(store.projects().length, 8); store.db.close();
+});
+
+test('replacing untouched starter resume text preserves its existing public visibility', () => {
+  const isolated = join(directory, 'public-starter-resume'); let store = createPortfolioStore(isolated);
+  beforeCareerImport(store, starterProfile, { ...starterResume, published: true }); store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.resume(), resumeInput({ ...careerResume, published: true })); store.db.close();
+});
+
+test('career migration rolls back profile, resume, images, projects, and marker if its final project fails', () => {
+  const isolated = join(directory, 'failed-career-content'); let store = createPortfolioStore(isolated);
+  beforeCareerImport(store);
+  store.db.exec(`CREATE TRIGGER fail_career_project BEFORE INSERT ON projects WHEN NEW.id='${careerProjects.at(-1).id}' BEGIN SELECT RAISE(ABORT, 'injected career import failure'); END`);
+  store.db.close();
+  assert.throws(() => createPortfolioStore(isolated), /injected career import failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM profile WHERE id=1').get().json), starterProfile);
+  assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM documents WHERE id=?').get('resume').json), starterResume);
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM images').get().count, 0);
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, 3);
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('career-import-v1'), undefined);
+  db.exec('DROP TRIGGER fail_career_project'); db.close();
+  store = createPortfolioStore(isolated); assert.equal(store.projects().length, 7); store.db.close();
+});
+
+test('imported screenshots follow project visibility and the career resume template requires login', async () => {
+  assert.equal((await call('/api/portfolio/career-template', {}, false)).status, 401);
+  const template = await call('/api/portfolio/career-template'); assert.equal(template.status, 200);
+  assert.deepEqual((await template.json()).resume, careerResume);
+  const { projects } = await (await call('/api/portfolio/manage')).json();
+  const project = projects.find(value => value.id === careerProjects[1].id);
+  assert.ok(project.cover); assert.equal((await call(project.cover, {}, false)).status, 200);
+  assert.equal((await call(`/api/portfolio/projects/${project.id}`, { method: 'PUT', body: JSON.stringify({ ...project, published: false }) })).status, 200);
+  assert.equal((await call(project.cover, {}, false)).status, 401);
+  assert.equal((await call(project.cover)).status, 200);
+  await call(`/api/portfolio/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {
