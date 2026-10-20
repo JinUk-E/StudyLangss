@@ -6,6 +6,7 @@ import { loadAuth } from './lib/auth.mjs';
 import { assert } from './lib/validation.mjs';
 import { createChatStore } from './lib/chat-store.mjs';
 import { createUpstream, localEndpoint, modelContext } from './lib/chat-upstream.mjs';
+import { servePwaAsset } from './lib/pwa-assets.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const data = resolve(process.env.CHAT_DATA_DIR || resolve(root, 'data/chat'));
@@ -104,6 +105,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   try {
+    if (await servePwaAsset(req, res, root)) return;
     if (!await authenticate(req, res)) return;
     sameOrigin(req);
     const path = new URL(req.url, 'http://localhost').pathname, method = req.method;

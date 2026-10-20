@@ -10,6 +10,7 @@ import { loadAuth } from './lib/auth.mjs';
 import { createTts } from './lib/tts.mjs';
 import { resolveSpeechSource } from './lib/tts-source.mjs';
 import { STELLA_LESSON_INSTRUCTIONS } from './lib/persona.mjs';
+import { servePwaAsset } from './lib/pwa-assets.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const publicDir = resolve(root, 'public');
@@ -127,6 +128,7 @@ async function api(req, res, url) {
 const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Referrer-Policy', 'same-origin'); res.setHeader('X-Frame-Options', 'DENY');
   try {
+    if (await servePwaAsset(req, res, root)) return;
     if (!await authenticate(req, res)) return;
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
