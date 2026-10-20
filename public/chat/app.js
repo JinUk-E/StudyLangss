@@ -67,7 +67,8 @@ function sourceCards(sources) {
 function messageElement(message) {
   const article = element('article', undefined, `message ${message.role}`);
   const head = element('div', undefined, 'message-head');
-  head.append(element('span', message.role === 'user' ? '나' : '✦', 'avatar'), element('span', message.role === 'user' ? '나' : (message.model || '별빛공방')));
+  head.append(element('span', message.role === 'user' ? '나' : '✦', 'avatar'), element('span', message.role === 'user' ? '나' : '스텔라'));
+  if (message.role !== 'user' && message.model) head.title = `사용 모델: ${message.model}`;
   const body = element('div', undefined, 'message-body');
   if (message.role === 'user') { const p = element('p', message.content); body.append(p); }
   else markdown(body, message.content);

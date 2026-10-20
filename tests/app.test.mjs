@@ -193,6 +193,8 @@ test('Ollama integration sends stored answers server-side and caches successful 
     let text = ''; for await (const chunk of req) text += chunk;
     const payload = JSON.parse(text);
     assert.equal(payload.model, 'local-test-model'); assert.equal(payload.stream, false);
+    assert.match(payload.messages[0].content, /스텔라\(Stella\)/);
+    assert.match(payload.messages[0].content, /학습자가 틀린 부분을 탓하지 말고/);
     assert.ok(JSON.parse(payload.messages[1].content).answer); calls++;
     res.end(JSON.stringify({ message: { content: '한국어 테스트 해설입니다.' } }));
   });

@@ -92,6 +92,9 @@ test('streaming, search citations, conversation persistence and deletion work wi
   assert.equal(result.events.find(e => e.type === 'delta').text, '안녕하세요 **별빛** [1]');
   assert.equal(downstreamAuth, undefined);
   assert.equal(lastPayload.stream, true); assert.match(lastPayload.messages[0].content, /신뢰할 수 없는/);
+  assert.match(lastPayload.messages[0].content, /스텔라\(Stella\)/);
+  assert.match(lastPayload.messages[0].content, /부드럽고 지적/);
+  assert.match(lastPayload.messages[0].content, /꼼꼼하고 배려심/);
   assert.match(lastPayload.messages[0].content, /https:\/\/example.org\/source/);
   const saved = await (await api(`/api/chat/threads/${id}`)).json();
   assert.equal(saved.messages.length, 2); assert.equal(saved.messages[1].status, 'complete'); assert.equal(saved.messages[1].sources.length, 1);
