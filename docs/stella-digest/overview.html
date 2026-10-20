@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스텔라 · 월요일 리포트 기획</title>
+<style>
+:root{color-scheme:light dark;--bg:#f4f1ea;--paper:#fffdf8;--ink:#253b3d;--muted:#5d7070;--line:#d9dfd6;--green:#e3eee4;--amber:#fff0cd;--red:#f8e0db;--accent:#315d58}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.75 system-ui,-apple-system,"Malgun Gothic",sans-serif}main{max-width:1080px;margin:auto;padding:48px 24px 72px}header{padding:20px 0 32px;border-bottom:1px solid var(--line)}.eyebrow{font-size:13px;letter-spacing:.12em;color:var(--muted)}h1{font-size:clamp(30px,5vw,54px);line-height:1.2;margin:16px 0 22px;letter-spacing:-.05em}h2{font-size:24px;margin:0 0 16px}h3{font-size:17px;margin:0 0 10px}p{margin:10px 0}.lead{font-size:20px;max-width:760px}.muted,small{color:var(--muted)}section{margin-top:32px}.card{background:var(--paper);padding:28px;border:1px solid var(--line);border-radius:16px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.box{padding:18px 22px;border-radius:12px;margin-top:16px}.go{background:var(--green)}.wait{background:var(--amber)}.stop{background:var(--red)}.badge{font-size:12px;border:1px solid currentColor;border-radius:30px;padding:4px 10px;display:inline-block}table{border-collapse:collapse;width:100%;font-size:15px}th,td{text-align:left;border-bottom:1px solid var(--line);padding:14px 12px;vertical-align:top}th{color:var(--muted);font-weight:600}.table{overflow-x:auto}svg{display:block;width:100%;height:auto;margin:24px 0 0}svg text{fill:var(--ink);font-family:system-ui,"Malgun Gothic",sans-serif}.node{fill:var(--paper);stroke:var(--line);stroke-width:2}.tint{fill:var(--green)}.arrow{stroke:var(--accent);stroke-width:3;fill:none}a{color:var(--accent)}code{font-size:.9em;overflow-wrap:anywhere}.steps{counter-reset:phase}.phase{padding-left:20px;border-left:3px solid var(--accent)}.phase small{display:block;margin-top:12px}footer{margin-top:36px;font-size:13px;color:var(--muted)}details{border-top:1px solid var(--line);padding:16px 0}summary{font-weight:650;cursor:pointer}.sources{font-size:14px;overflow-wrap:anywhere}
+@media(prefers-color-scheme:dark){:root{--bg:#142325;--paper:#1b2e30;--ink:#e6eeea;--muted:#b0c4be;--line:#365154;--green:#24463c;--amber:#51452a;--red:#543934;--accent:#a0d2bf}}
+@media(max-width:650px){main{padding:24px 16px 48px}.card{padding:20px}.grid{grid-template-columns:1fr}.lead{font-size:18px}th,td{padding:12px 8px;font-size:13px}.flow-wide{display:none}.flow-mobile{display:block!important}h2{font-size:21px}}
+</style>
+<main>
+<header>
+<div class="eyebrow">STARLIGHT FORGE / STELLA DIGEST · 2026.10.20</div>
+<h1>월요일에 도착하는<br>나만의 관심 소식</h1>
+<p class="lead">스텔라가 관심 주제를 검색하고 출처를 확인해 정리합니다. 전체 내용은 내 웹에 보관하고, 핵심만 개인 메신저로 받아봅니다.</p>
+<span class="badge">기획 제안 · 실제 예약 꺼짐</span>
+<p class="muted">권고안: 디스코드로 시작 · 월요일 09:00 한국 시간 · 지난 7일 · 핵심 최대 5건. 채널·주제·시각은 아직 정하지 않았습니다.</p>
+</header>
+
+<section class="card">
+<h2>웹을 닫아도, 내 Mac이 처리합니다</h2>
+<p>새 앱 설치 없이 기존 별빛공방에 붙입니다. Mac 전원과 로그인 세션, 서버와 인터넷 연결이 필요합니다.</p>
+<svg class="flow-wide" viewBox="0 0 980 360" role="img" aria-label="설정에서 예약, 검색과 요약, 웹 보관 후 디스코드 전달 흐름">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="var(--accent)"/></marker></defs>
+<rect x="10" y="20" width="960" height="260" rx="24" fill="var(--bg)"/>
+<text x="36" y="56" font-size="15">내 Mac · 기존 채팅 서버 + SQLite + Ollama</text>
+<rect class="node" x="34" y="90" width="190" height="130" rx="16"/><text x="58" y="125" font-size="14">01 · 내가 정하기</text><text x="58" y="161" font-size="23" font-weight="650">주제와 월요일</text><text x="58" y="193" font-size="14">테스트 후 예약 켜기</text>
+<path class="arrow" d="M230 153H270" marker-end="url(#arrow)"/>
+<rect class="node" x="280" y="90" width="190" height="130" rx="16"/><text x="304" y="125" font-size="14">02 · 근거 모으기</text><text x="304" y="161" font-size="23" font-weight="650">검색과 날짜 확인</text><text x="304" y="193" font-size="14">공식 자료 우선 · 중복 제외</text>
+<path class="arrow" d="M476 153H516" marker-end="url(#arrow)"/>
+<rect class="node tint" x="526" y="90" width="190" height="130" rx="16"/><text x="550" y="125" font-size="14">03 · 스텔라</text><text x="550" y="161" font-size="23" font-weight="650">요약하고 저장</text><text x="550" y="193" font-size="14">출처와 불확실성 함께</text>
+<path class="arrow" d="M722 153H762" marker-end="url(#arrow)"/>
+<rect class="node" x="772" y="90" width="174" height="130" rx="16"/><text x="793" y="125" font-size="14">04 · 내 휴대폰</text><text x="793" y="161" font-size="23" font-weight="650">개인 채널 알림</text><text x="793" y="193" font-size="14">요약 + 전체 보기 링크</text>
+<text x="38" y="257" font-size="14">브라우저는 열어둘 필요가 없습니다. 전체 리포트는 로그인한 사용자만 볼 수 있습니다.</text>
+<text x="36" y="323" font-size="16">부드럽고 지적인 스텔라의 말투로, 확인한 사실과 추정을 구분합니다.</text>
+</svg>
+<svg class="flow-mobile" style="display:none" viewBox="0 0 330 490" role="img" aria-label="주제 설정, 검색, 요약 저장, 개인 알림 순서">
+<path class="arrow" d="M165 70V422"/>
+<rect class="node" x="15" y="12" width="300" height="90" rx="16"/><text x="34" y="48" font-size="20">01 주제와 월요일 정하기</text><text x="34" y="77" font-size="14">수신 테스트 후 예약 켜기</text>
+<rect class="node" x="15" y="136" width="300" height="90" rx="16"/><text x="34" y="172" font-size="20">02 검색과 날짜 확인</text><text x="34" y="201" font-size="14">공식 자료 우선 · 중복 제외</text>
+<rect class="node tint" x="15" y="260" width="300" height="90" rx="16"/><text x="34" y="296" font-size="20">03 스텔라 요약 → 웹 보관</text><text x="34" y="325" font-size="14">출처와 불확실성 함께</text>
+<rect class="node" x="15" y="384" width="300" height="90" rx="16"/><text x="34" y="420" font-size="20">04 개인 채널로 알림</text><text x="34" y="449" font-size="14">핵심 요약 + 비공개 전체 보기</text>
+</svg>
+</section>
+
+<section class="grid">
+<article class="card"><h3>디스코드 · 첫 권고</h3><p>내 서버의 개인 채널에 Webhook으로 보냅니다. 첫 버전은 단방향 알림에 집중합니다.</p></article>
+<article class="card"><h3>텔레그램 · 다음 선택</h3><p>봇과 첫 대화를 시작하고 개인 수신처를 연결합니다. 이후 명령과 대화 기능 확장에 맞습니다.</p></article>
+<article class="card"><h3>카카오톡 · 후속</h3><p>‘나에게 보내기’를 검토합니다. 로그인·토큰 갱신·재연결 운영이 더 필요합니다.</p></article>
+</section>
+
+<section class="card">
+<h2>AI 대화 탭 안에 네 메뉴</h2>
+<div class="table"><table><thead><tr><th>메뉴</th><th>여기서 하는 일</th></tr></thead><tbody>
+<tr><td>스텔라와 대화</td><td>지금처럼 질문하고 대화합니다.</td></tr>
+<tr><td>정기 리포트</td><td>주제·검색식·시각을 설정하고 미리보기, 예약 켜기·중지를 합니다.</td></tr>
+<tr><td>리포트 보관함</td><td>전체 내용과 출처, 생성·발송 상태를 각각 확인합니다. 화면을 닫은 미리보기도 여기 남습니다.</td></tr>
+<tr><td>알림 연결</td><td>수신처를 등록하고 문구·대상을 확인한 뒤 테스트를 보냅니다. 비밀값은 다시 표시하지 않습니다.</td></tr>
+</tbody></table></div>
+<div class="box go"><strong>먼저 읽고, 그다음 켜기.</strong> 미리보기는 웹에만 저장합니다. 예약은 기본 꺼짐이며, 사용자가 켜야 외부 발송이 시작됩니다.</div>
+</section>
+
+<section class="card">
+<h2>작게 확인하며 세 단계로 만듭니다</h2>
+<div class="grid">
+<article class="phase"><h3>1. 웹 리포트</h3><p>수동 검색 → 요약 → 보관함. 원하는 자료가 제대로 모이는지 확인합니다.</p><small>출처·발행일·기간 검증</small></article>
+<article class="phase"><h3>2. 개인 채널 연결</h3><p>테스트와 수동 발송. 휴대폰에서 링크를 열고 로그인해 전체 내용까지 확인합니다.</p><small>실제 승인한 수신처 검증</small></article>
+<article class="phase"><h3>3. 월요일 예약</h3><p>재시작과 누락·오류를 시험합니다. 실제 월요일 한 회를 관찰해 운영을 확인합니다.</p><small>코드 완료와 실운영 검증 구분</small></article>
+</div>
+<p class="muted">초기 한도: 예약 5개 · 검색식 3개/예약 · 후보 15개 · 핵심 5건 · 채널 1개. 검색과 요약은 순서대로 처리합니다.</p>
+</section>
+
+<section class="card">
+<h2>놓치거나 중복 보내는 일을 줄이는 규칙</h2>
+<div class="table"><table><thead><tr><th>상황</th><th>사용자가 보게 될 결과</th></tr></thead><tbody>
+<tr><td>Mac이 꺼져 있었음</td><td>48시간 안에 돌아오면 가장 최근 한 회만 보완합니다. 그보다 오래되면 누락을 기록합니다.</td></tr>
+<tr><td>대화와 요약이 겹침</td><td>대화를 우선합니다. 생성 시작 후 30분 또는 요약 중단 3회면 종료하고 상태를 남깁니다.</td></tr>
+<tr><td>확인된 새 자료 없음</td><td>‘확인된 새 소식 없음’. 검색 실패와 구분하며 이 알림은 설정에서 끌 수 있습니다.</td></tr>
+<tr><td>예약의 검색·요약 실패</td><td>같은 정상 채널로 짧은 상태 알림을 보냅니다. 미리보기·발송 요청 없는 수동 생성은 외부 알림이 없습니다. 채널 자체 장애는 웹에서 확인합니다.</td></tr>
+<tr><td>보냈지만 응답이 끊김</td><td>‘발송 결과 불명’. 자동으로 다시 보내지 않습니다. 사용자가 채널 확인 후 재발송합니다.</td></tr>
+<tr><td>수신처·설정 변경</td><td>진행 중 미발송 건은 취소합니다. 수신처 교체 시 재시험하고 예약을 다시 켭니다.</td></tr>
+</tbody></table></div>
+<div class="box wait"><strong>정확한 시각과 완벽한 한 번 전달은 보장하지 않습니다.</strong> 생성·네트워크 지연이 생길 수 있습니다. 안전한 발송 재시도만 최대 3회, 저장 후 2시간 안에서 허용합니다. 예정 시각 48시간 한도도 함께 적용합니다.</div>
+</section>
+
+<section class="card">
+<h2>세 역할의 검토에서 바뀐 점</h2>
+<div class="table"><table><thead><tr><th>관점</th><th>반영한 내용</th></tr></thead><tbody>
+<tr><td>기술 검토</td><td>끝없는 대기 방지, 실행권 세대 확인, 설정 변경 시 취소 상태를 명확히 했습니다.</td></tr>
+<tr><td>운영 부담</td><td>시간·재시도 한도를 숫자로 정하고 실제 월요일 관찰 기간을 분리했습니다.</td></tr>
+<tr><td>사용 경험</td><td>실패 상태 알림, 화면을 닫은 작업의 보관함 복귀, 휴대폰 전체 보기 시험을 추가했습니다.</td></tr>
+</tbody></table></div>
+<p class="muted">세 역할 모두 Codex 계열입니다. 다른 모델 계열에 의한 독립성까지 확보했다고 주장하지 않습니다.</p>
+<div class="box stop"><strong>별도 CLI 추가 검토는 보류.</strong> 문서의 내부 구조·보안 내용 외부 전달에 대한 자동 승인 검토가 거절했습니다. 우회 실행하지 않았습니다.</div>
+</section>
+
+<section class="card">
+<h2>구현 전에 정할 세 가지</h2>
+<div class="grid"><article><h3>받을 곳</h3><p>디스코드 권고. 텔레그램을 원하면 첫 전달 모듈을 바꿉니다.</p></article><article><h3>찾을 주제</h3><p>관심 키워드와 제외할 내용, 우선 볼 출처를 정합니다.</p></article><article><h3>월요일 몇 시</h3><p>09:00은 제안값입니다. 한국 시간으로 선택합니다.</p></article></div>
+<div class="box wait">검색 서비스의 날짜·피드 지원과 요금·쿼터는 Mac 설정에서 확인해야 합니다. 이번 문서는 기획이며 실제 예약이나 메신저 연결을 만들지 않았습니다.</div>
+</section>
+
+<section class="card">
+<h2>자세한 설계와 근거</h2>
+<details><summary>검색 품질과 개인정보</summary><p>지난 7일은 예정 시각을 기준으로 고정합니다. 날짜를 확인하지 못한 자료는 핵심 소식에서 빼고 참고로 구분합니다. AI가 만든 URL 대신 수집한 출처 링크를 사용합니다.</p><p>리포트는 로그인 영역에 보관합니다. 비밀값은 Mac 사용자 전용 파일에 저장하고 Git·응답·일반 백업에서 제외합니다. 검색어는 검색 제공자에, 요약은 선택한 메신저에 전달됩니다.</p></details>
+<details><summary>검증할 항목</summary><p>가짜 시계의 월요일·48시간 경계, 중복 탐지, 실행권 상실, 검색·모델·DB 실패, 발송 접수 후 응답 유실, 설정 변경과 취소, 비밀값 노출 방지, 출처 주소 우회 차단을 확인합니다. 실제 Mac·휴대폰 시험과 첫 월요일 관찰은 별도로 남깁니다.</p></details>
+<details><summary>공식 문서 · 확인 2026-10-20</summary><p class="sources"><a href="https://docs.discord.com/developers/resources/webhook">Discord Webhook</a> · <a href="https://core.telegram.org/bots/tutorial">Telegram Bot Tutorial</a> · <a href="https://developers.kakao.com/docs/ko/kakaotalk-message/rest-api">KakaoTalk Message API</a> · <a href="https://developers.kakao.com/docs/ko/kakaologin/rest-api">Kakao Login API</a></p><p>디스코드는 2,000자 이내 단일 메시지, 응답 확인과 멘션 방지를 적용합니다. 카카오는 본인의 나와의 채팅을 대상으로 검토합니다.</p></details>
+</section>
+<footer>main-codex · game-team-protocol 적용 · L 등급(외부 발송·예약 상태·연결 비밀값). 상세 원문 plan.md와 검토 기록 critique.md를 함께 보관합니다. 외부 자산 없이 오프라인으로 열 수 있는 문서입니다.</footer>
+</main>
+</html>
