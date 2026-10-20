@@ -1,0 +1,8 @@
+{
+  "protocolVersion": 1,
+  "modelId": "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-6bit",
+  "modelRevision": "1c6c0ff58c43afa8df571facde2efa077efd85e2",
+  "styleVersion": "stella-calm-v1",
+  "segmentationVersion": "ko-ja-v1",
+  "mlxAudioVersion": "0.6.0"
+}

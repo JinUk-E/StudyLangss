@@ -98,6 +98,20 @@ function renderQuestion() {
   $('#answer').onclick = submitAnswer;
   if ($('#reading-toggle')) $('#reading-toggle').onchange = e => { readingVisible = e.target.checked; $('#reading').hidden = !readingVisible; };
   if ($('#listen')) $('#listen').onclick = () => speak(q.id);
+  if (result) {
+    const controls = document.createElement('div'); controls.className = 'inline-row';
+    const play = document.createElement('button'); play.type = 'button'; play.className = 'btn secondary'; play.textContent = '한국어 해설 듣기';
+    const stop = document.createElement('button'); stop.type = 'button'; stop.className = 'btn ghost'; stop.textContent = '재생 중지';
+    const note = document.createElement('p'); note.className = 'help'; note.setAttribute('role', 'status');
+    play.onclick = () => questionSpeech.play({ questionId: q.id, part: 'explanation' }, { status: text => { if (note.isConnected) note.textContent = text; } });
+    stop.onclick = () => { questionSpeech.cancel(); note.textContent = '재생을 중지했습니다.'; };
+    controls.append(play, stop); const feedback = $('.feedback'); feedback.querySelector('p').after(controls, note);
+  }
+  if ($('#listen')) {
+    const stop = document.createElement('button'); stop.type = 'button'; stop.className = 'btn ghost'; stop.textContent = '재생 중지';
+    stop.onclick = () => { questionSpeech.cancel(); if ($('#voice-note')) $('#voice-note').textContent = '재생을 중지했습니다.'; };
+    $('#listen').after(stop);
+  }
   if ($('#ai-explain')) $('#ai-explain').onclick = explain;
   document.querySelectorAll('[data-rating]').forEach(b => b.onclick = async () => { try { await post(`/api/reviews/${encodeURIComponent(q.id)}`, { rating: b.dataset.rating }); document.querySelectorAll('[data-rating]').forEach(x => x.disabled = true); toast('복습 일정을 조정했어요.'); } catch (error) { toast(error.message); } });
 }

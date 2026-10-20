@@ -15,4 +15,7 @@ auth.json.*.tmp
 *.htpasswd
 .qa/
 .site-updater/
+.venv-tts/
+__pycache__/
+*.pyc
 haru-jlpt-mvp.zip

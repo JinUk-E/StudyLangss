@@ -1,3 +1,5 @@
+import { createSpeech } from './speech.js';
+const speech = createSpeech(globalThis, { service: 'chat' });
 const $ = selector => document.querySelector(selector);
 const state = { id: null, busy: false, models: [], controller: null, messages: [] };
 let preferenceNamespace = 'starlight.unresolved';
@@ -65,6 +67,20 @@ function sourceCards(sources) {
   });
   return list;
 }
+function addSpeechControls(article, message) {
+  if (message.role !== 'assistant' || message.status !== 'complete' || !message.id || article.querySelector('.message-speech')) return;
+  const controls = element('div', undefined, 'message-speech'), buttons = element('div', undefined, 'speech-buttons');
+  const play = element('button', '답변 읽기'), stop = element('button', '재생 중지'); play.type = stop.type = 'button';
+  const label = element('label', '읽기 언어 '), language = element('select'); language.setAttribute('aria-label', '답변 읽기 언어');
+  for (const [value, title] of [['auto', '자동 · 한국어/일본어'], ['ko', '한국어'], ['ja', '일본어']]) { const option = element('option', title); option.value = value; language.append(option); }
+  label.append(language);
+  const note = element('p', '', 'speech-status'); note.setAttribute('role', 'status');
+  const help = element('p', '스텔라 · 차분하고 부드러운 음성. 자동 구분이 어색하면 읽기 언어를 선택해 주세요.', 'speech-help');
+  play.onclick = () => speech.play({ messageId: message.id, language: language.value }, { status: text => { if (note.isConnected) note.textContent = text; } });
+  stop.onclick = () => { speech.cancel(); note.textContent = '재생을 중지했습니다.'; };
+  language.onchange = () => { speech.cancel(); note.textContent = '언어를 바꿨습니다. 답변 읽기를 눌러 주세요.'; };
+  buttons.append(play, stop, label); controls.append(buttons, note, help); article.append(controls);
+}
 function messageElement(message) {
   const article = element('article', undefined, `message ${message.role}`);
   const head = element('div', undefined, 'message-head');
@@ -75,6 +91,7 @@ function messageElement(message) {
   else markdown(body, message.content);
   article.append(head, body, sourceCards(message.sources || []));
   if (['error', 'interrupted'].includes(message.status)) article.append(element('div', message.status === 'interrupted' ? '중단된 답변입니다.' : '완료되지 않은 답변입니다. 다시 질문해 주세요.', 'message-status'));
+  addSpeechControls(article, message);
   return article;
 }
 function bottom(force = false) {
@@ -109,6 +126,7 @@ async function loadThreads() {
 function closeMenu() { document.body.classList.remove('menu-open'); $('#menu').setAttribute('aria-expanded', 'false'); }
 async function openThread(id) {
   if (state.busy) return;
+  speech.cancel();
   const data = await api(`/threads/${id}`); state.id = id; state.messages = data.messages;
   preference.set('thread', id); $('#thread-title').textContent = data.thread.title;
   $('#delete-chat').hidden = false; $('#welcome').hidden = data.messages.length > 0;
@@ -119,6 +137,7 @@ async function openThread(id) {
 }
 function newChat() {
   if (state.busy) return;
+  speech.cancel();
   state.id = null; state.messages = []; preference.set('thread', null);
   $('#messages').replaceChildren(); $('#welcome').hidden = false; $('#delete-chat').hidden = true;
   $('#thread-title').textContent = '새 대화'; notice(''); closeMenu();
@@ -129,9 +148,10 @@ async function submit(event) {
   event.preventDefault();
   const content = $('#prompt').value.trim(), model = $('#model').value;
   if (state.busy || !content || !model) return;
+  speech.cancel();
   setBusy(true); notice(''); preference.set('model', model);
   const controller = new AbortController(); state.controller = controller;
-  let bodyEl, output = '', sourceList = [], warning = '', errorText = '', completed = false, frame;
+  let bodyEl, output = '', sourceList = [], warning = '', errorText = '', completed = false, refreshSpeech = false, frame;
   const draw = () => { if (bodyEl) { markdown(bodyEl, output); bottom(); } };
   try {
     if (!state.id) {
@@ -157,7 +177,11 @@ async function submit(event) {
       if (item.type === 'warning') { warning = item.text; notice(warning); }
       if (item.type === 'sources') { sourceList = item.sources; assistant.querySelector('.sources').replaceWith(sourceCards(sourceList)); }
       if (item.type === 'error') { errorText = item.text; notice(item.text); }
-      if (item.type === 'done') completed = true;
+      if (item.type === 'done') {
+        completed = true;
+        if (item.complete && item.messageId) addSpeechControls(assistant, { id: item.messageId, role: 'assistant', status: 'complete' });
+        else if (item.complete) refreshSpeech = true;
+      }
     };
     while (true) {
       const { done, value } = await reader.read(); if (done) break;
@@ -174,6 +198,7 @@ async function submit(event) {
     if (bodyEl) bodyEl.parentElement.append(element('div', errorText, 'message-status'));
   } finally {
     clearTimeout(frame); draw(); bodyEl?.classList.remove('typing'); state.controller = null; setBusy(false);
+    if (refreshSpeech && !errorText && state.id) await openThread(state.id).catch(error => notice(error.message));
     loadThreads().catch(() => {}); $('#prompt').focus();
   }
 }
@@ -192,6 +217,7 @@ document.addEventListener('click', event => { if (document.body.classList.contai
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMenu(); });
 $('#delete-chat').onclick = async () => {
   if (!state.id || state.busy || !confirm('이 대화와 메시지를 삭제할까요?')) return;
+  speech.cancel();
   try { await api(`/threads/${state.id}`, { method: 'DELETE' }); newChat(); await loadThreads(); } catch (error) { notice(error.message); }
 };
 document.querySelectorAll('[data-prompt]').forEach(button => { button.onclick = () => {
@@ -207,3 +233,4 @@ try {
   await loadThreads(); const id = preference.get('thread');
   if (id) await openThread(id).catch(() => { preference.set('thread', null); });
 } catch (error) { notice(error.message); }
+window.addEventListener('pagehide', () => speech.cancel());

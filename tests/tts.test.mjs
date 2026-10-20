@@ -132,6 +132,30 @@ test('TTS rejects corrupt output and corrupt cached files are regenerated', asyn
   assert.equal((await tts.synthesize('音声')).cached, false);
 });
 
+test('request deadline includes queue wait and aborts generation instead of overrunning the browser wait', async t => {
+  const entered = [];
+  const backend = {
+    identity: 'test-deadline',
+    voices: async () => ({ available: true, voices: [{ id: 'ja', language: 'ja-JP' }] }),
+    async generate({ text, signal, destination }) {
+      entered.push(text);
+      await new Promise((done, fail) => {
+        const timer = setTimeout(done, 100);
+        signal.addEventListener('abort', () => { clearTimeout(timer); fail(signal.reason); }, { once: true });
+      });
+      await writeFile(destination, wav());
+    }
+  };
+  const { tts } = await setup(t, { backend, timeoutMs: 1000, requestTimeoutMs: 160 });
+  const first = tts.synthesize('最初');
+  await waitFor(() => entered.length === 1);
+  const queued = tts.synthesize('次の音声');
+  const rejected = assert.rejects(queued, error => error.status === 504 && error.code === 'TTS_TIMEOUT');
+  assert.equal(validWav((await first).buffer), true);
+  await rejected;
+  assert.deepEqual(entered, ['最初', '次の音声']);
+});
+
 test('TTS cache evicts oldest files and rejects oversized audio', async t => {
   const { tts, directory } = await setup(t, { maxCacheBytes: 96, maxAudioBytes: 48 });
   const a = await tts.synthesize('一'); await new Promise(resolve => setTimeout(resolve, 5));

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>스텔라의 목소리 · Mac 설치 안내</title>
+<style>
+:root{color-scheme:light dark;--bg:#f7f6f2;--card:#fffefa;--ink:#25343a;--muted:#657278;--line:#dce2dd;--accent:#426c61;--green:#e8f3eb;--amber:#fff2d6;--red:#fde8e5;--code:#eef0eb}
+html[data-theme=dark]{--bg:#151d20;--card:#202a2e;--ink:#e3ece8;--muted:#acbcb7;--line:#3c4d4c;--accent:#a7d6c1;--green:#203f34;--amber:#443b24;--red:#482d2d;--code:#192225;color-scheme:dark}
+@media(prefers-color-scheme:dark){html:not([data-theme=light]){--bg:#151d20;--card:#202a2e;--ink:#e3ece8;--muted:#acbcb7;--line:#3c4d4c;--accent:#a7d6c1;--green:#203f34;--amber:#443b24;--red:#482d2d;--code:#192225}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.8 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}main{max-width:1160px;margin:auto;padding:46px 28px 70px}header{display:flex;justify-content:space-between;gap:20px;align-items:start}h1{font-size:clamp(32px,5vw,52px);line-height:1.3;letter-spacing:-.05em;margin:8px 0 18px}h2{font-size:27px;margin:36px 0 14px}h3{font-size:20px;margin:0 0 8px}p{margin:8px 0 16px}.eyebrow{font-size:13px;letter-spacing:.13em;color:var(--accent);font-weight:700}.intro{max-width:800px;font-size:20px;color:var(--muted)}button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:25px;padding:9px 17px;cursor:pointer;white-space:nowrap}a{color:var(--accent)}.diagram{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px 12px}.diagram svg{width:100%;height:auto;display:block}.diagram text{fill:var(--ink);font-family:inherit}.diagram rect{fill:var(--bg);stroke:var(--line);stroke-width:2}.diagram .accent{fill:var(--accent)}.diagram path{stroke:var(--accent);stroke-width:3;fill:none}.caption{font-size:14px;color:var(--muted);text-align:center;margin:10px 0 0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.step{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:24px}.num{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--accent)}pre{background:var(--code);border-radius:10px;padding:16px;overflow:auto;font:14px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace;margin:12px 0}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.88em}.box{padding:18px 22px;border-radius:12px;margin:16px 0}.green{background:var(--green)}.amber{background:var(--amber)}.red{background:var(--red)}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;background:var(--card)}th,td{text-align:left;border-bottom:1px solid var(--line);padding:14px 16px;vertical-align:top}th{color:var(--accent)}footer{border-top:1px solid var(--line);margin-top:36px;padding-top:20px;font-size:14px;color:var(--muted)}@media(max-width:700px){main{padding:26px 18px}.grid{grid-template-columns:1fr}header{display:block}button{margin-bottom:10px}.diagram{padding:18px 4px}th,td{padding:12px;font-size:15px}}
+</style></head><body><main>
+<header><div><div class="eyebrow">STARLIGHT FORGE · STELLA VOICE</div><h1>스텔라에게<br>차분한 목소리를.</h1></div><button id="theme" type="button" aria-label="밝은 화면과 어두운 화면 전환">밝게 / 어둡게</button></header>
+<p class="intro">Mac에서 한국어와 일본어를 합성하고, 웹과 휴대폰에서 들을 수 있습니다. 휴대폰에 모델을 설치할 필요는 없어요.</p>
+<div class="box amber"><strong>먼저 알아두세요.</strong> 코드·권한·재생 흐름은 테스트했습니다. 실제 Mac의 MLX 실행과 음질·속도는 아직 확인하지 못했습니다. 아래 두 언어 샘플을 직접 들어본 뒤 활성화하세요.</div>
+<h2>목소리가 전달되는 길</h2>
+<div class="diagram"><svg viewBox="0 0 1100 310" role="img" aria-labelledby="flow-title flow-desc"><title id="flow-title">휴대폰에서 Mac 내부 Qwen으로 이어지는 음성 흐름</title><desc id="flow-desc">로그인한 웹이 저장된 본인 자료 ID를 보내면 Mac의 Node 서버가 권한을 확인합니다. 비공개 Qwen 서비스가 음성을 만들고 WAV를 웹으로 돌려줍니다.</desc><defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8"/></marker></defs>
+<rect x="20" y="50" width="285" height="180" rx="18"/><rect x="405" y="50" width="285" height="180" rx="18"/><rect x="790" y="50" width="285" height="180" rx="18"/>
+<text x="162" y="103" font-size="27" text-anchor="middle">웹 · 휴대폰</text><text x="162" y="147" font-size="21" text-anchor="middle">답변 · 학습 자료 읽기</text><text x="162" y="188" font-size="19" text-anchor="middle">로그인 · 재생 버튼</text>
+<text x="547" y="103" font-size="27" text-anchor="middle">Mac 웹 서버</text><text x="547" y="147" font-size="21" text-anchor="middle">본인 자료 · 권한 확인</text><text x="547" y="188" font-size="19" text-anchor="middle">학습 / AI 대화</text>
+<text x="932" y="103" font-size="27" text-anchor="middle">Qwen3-TTS</text><text x="932" y="147" font-size="21" text-anchor="middle">한국어 · 일본어 합성</text><text x="932" y="188" font-size="19" text-anchor="middle">Mac 내부에서만 실행</text>
+<path d="M318 118 H386" marker-end="url(#arrow)"/><path d="M703 118 H771" marker-end="url(#arrow)"/><text x="547" y="278" font-size="21" text-anchor="middle" class="accent">완성된 WAV를 전달 → 기기에서 재생</text></svg><p class="caption">기존 HTTPS 도메인을 사용합니다. Qwen의 8877 포트는 외부에 공개하지 않습니다.</p></div>
+<h2>Mac에서 한 번 설치하기</h2>
+<div class="grid">
+<article class="step"><div class="num">STEP 01 · 준비</div><h3>코드와 Python 준비</h3><p>Apple Silicon · macOS 14+ · Node 24+. 기존 웹 서버와 같은 로그인 사용자로 저장소에서 실행하세요.</p><pre>git switch starlightForge
+git pull --ff-only origin starlightForge
+npm ci
+brew install python@3.12
+export PATH="$(brew --prefix python@3.12)/bin:$PATH"</pre><p>Python이 이미 있다면 설치는 생략합니다. <code>python3.12</code>는 arm64여야 합니다.</p></article>
+<article class="step"><div class="num">STEP 02 · 설치</div><h3>모델과 자동 실행 도우미 준비</h3><pre>npm run setup-qwen-tts</pre><p>Python 가상환경과 모델을 내려받고 로그인 후 실행되는 도우미를 등록합니다. 최초 다운로드에는 수 GB의 저장 공간과 인터넷이 필요합니다.</p><div class="box green">이 단계에서는 기존 웹 음성을 바꾸지 않습니다.</div></article>
+<article class="step"><div class="num">STEP 03 · 들어보기</div><h3>한국어와 일본어 확인</h3><pre>npm run check-qwen-tts
+open data/tts/qwen-check-ko.wav
+open data/tts/qwen-check-ja.wav</pre><p>모델 로딩 중이면 잠시 뒤 점검을 다시 실행하세요. 두 파일의 발음·자연스러움·속도·음량을 확인합니다.</p><p>한국어는 Sohee, 일본어는 Ono_Anna입니다. 두 언어의 음색이 같다고 보장하지 않습니다.</p></article>
+<article class="step"><div class="num">STEP 04 · 적용</div><h3>점검 후 웹에 연결</h3><pre>npm run check-qwen-tts -- --activate
+launchctl kickstart -k "gui/$(id -u)/kr.haru.jlpt"
+launchctl kickstart -k "gui/$(id -u)/org.starlightforge.chat"</pre><p>두 언어 합성을 다시 확인한 뒤 설정을 저장합니다. 터미널로 운영한다면 학습·채팅 서버를 직접 재시작하세요.</p><p>웹을 새로고침하고 <strong>답변 읽기 / 한국어 뜻 듣기 / 해설 듣기</strong>를 눌러 확인합니다.</p></article>
+</div>
+<div class="box amber"><strong>기존 Nginx 설정도 확인.</strong> 현재 사용하는 설정의 학습 <code>/api/</code> 응답 대기시간을 180초로 맞추고 검사·재시작하세요. Git pull만으로 운영 설정이 바뀌지는 않습니다. 구체적인 명령은 아래 설치 문서에 있습니다.</div>
+<h2>안내가 나오면 이렇게</h2><div class="table-wrap"><table><thead><tr><th>화면 안내</th><th>할 일</th></tr></thead><tbody>
+<tr><td>모델 로딩 중</td><td>잠시 기다린 뒤 <code>npm run check-qwen-tts</code></td></tr>
+<tr><td>모델이 다른 요청 처리 중</td><td>음성 생성이 끝난 뒤 다시 누르기. Ollama 동시 실행 시 Mac 메모리도 확인</td></tr>
+<tr><td>서비스 버전 불일치</td><td><code>npm run setup-qwen-tts -- --refresh</code> → 샘플 확인 → 활성화</td></tr>
+<tr><td>자동 언어가 어색함</td><td>답변의 읽기 언어를 한국어 또는 일본어로 선택</td></tr>
+<tr><td>iPhone에서 한 번 더 누르기 안내</td><td>준비된 같은 재생 버튼을 다시 누르기</td></tr>
+<tr><td>Qwen을 잠시 끄고 싶음</td><td>Node의 <code>TTS_ENGINE=mac</code> 명시 후 재시작. 기존 일본어 음성만 사용</td></tr>
+</tbody></table></div>
+<div class="box red"><strong>서비스는 내부 전용.</strong> 8877을 포트포워딩하지 마세요. <code>data/tts/*.json</code>에는 인증 토큰이 있습니다. 공개 Git·메신저에 첨부하지 않습니다.</div>
+<h2>설치 뒤 알아둘 것</h2><p>차분하고 부드러운 말투를 고정 지시합니다. 자동 언어 구분은 글자 기반이라 섞인 문장은 수동 선택이 더 나을 수 있습니다. 읽기는 2,000자, 완성 음원은 최대 180초이며 제한을 넘으면 오류로 표시합니다.</p><p>웹의 사이트 업데이트 버튼은 Node 서버 3개를 갱신합니다. Python과 모델은 Mac에서 따로 <code>--refresh</code> 해야 합니다. 모델 캐시는 홈 폴더, Python 환경은 <code>.venv-tts/</code>에 있어 앱 데이터 백업에 포함되지 않습니다.</p>
+<p><a href="../../deploy/MAC-QWEN-TTS.md">상세 설치·Nginx·복구 명령</a> · <a href="verification.md">팀 검토와 검증 기록</a> · <a href="../../README.md">프로젝트 README</a></p>
+<footer>2026-10-20 · main-codex · 외부 자산 없이 오프라인에서 열 수 있는 안내입니다. 음성의 실제 품질과 메모리·속도는 Mac에서 확인합니다.</footer>
+</main><script>document.getElementById('theme').addEventListener('click',()=>{const e=document.documentElement;const dark=e.dataset.theme?e.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;e.dataset.theme=dark?'light':'dark';});</script></body></html>

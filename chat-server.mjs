@@ -10,6 +10,9 @@ import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { requireAccess } from './lib/access.mjs';
 import { createUserStores } from './lib/user-stores.mjs';
 import { createRuntimeHealth } from './lib/runtime-health.mjs';
+import { createAppTts } from './lib/qwen-tts.mjs';
+import { resolveChatSpeechSource } from './lib/tts-source.mjs';
+import { sendSpeech } from './lib/tts-response.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'chat');
@@ -18,12 +21,14 @@ let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(root, 'data/auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
 const stores = createUserStores(data, createChatStore, 'chat.sqlite');
+const tts = createAppTts({ root, cacheDir: resolve(data, 'tts-cache'), namespace: 'chat' });
 const upstream = createUpstream({ ollama: localEndpoint(process.env.CHAT_OLLAMA_URL || 'http://127.0.0.1:11434'), search: localEndpoint(process.env.CHAT_SEARCH_URL || 'http://127.0.0.1:8811') });
 const host = process.env.CHAT_HOST || '127.0.0.1', port = Number(process.env.CHAT_PORT || 3211);
 const active = new Map();
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 const staticFiles = new Map([
   ['/chat/', ['index.html', 'text/html']], ['/chat/app.js', ['app.js', 'text/javascript']], ['/chat/styles.css', ['styles.css', 'text/css']],
+  ['/chat/speech.js', ['../speech.js', 'text/javascript']],
   ['/shared/shell.js', ['../shared/shell.js', 'text/javascript']], ['/shared/shell.css', ['../shared/shell.css', 'text/css']]
 ]);
 
@@ -95,7 +100,7 @@ async function send(req, res, id, input, store, user) {
     assert(text.trim(), '모델이 빈 답변을 반환했습니다. 다시 시도해 주세요.', 502);
     status = 'complete';
     store.finish(assistantId, text, status, sources);
-    emit({ type: 'done' });
+    emit({ type: 'done', complete: true, messageId: assistantId });
   } catch (error) {
     status = signal.aborted ? 'interrupted' : 'error';
     if (assistantId) store.finish(assistantId, text, status, sources);
@@ -113,7 +118,7 @@ const server = createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   try {
     if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
@@ -131,7 +136,9 @@ const server = createServer(async (req, res) => {
     if (path === '/api/chat/health' && method === 'GET') return json(res, 200, { ok: true });
     if (path === '/api/chat/me' && method === 'GET') return json(res, 200, { user: { id: req.user.id, username: req.user.username, permissions: req.user.permissions, isAdmin: req.user.isAdmin } });
     if (path === '/api/chat/models' && method === 'GET') return json(res, 200, { models: await upstream.models(AbortSignal.timeout(10000)) });
+    if (path === '/api/chat/tts/voices' && method === 'GET') return json(res, 200, await tts.voices());
     const store = stores.get(req.user);
+    if (path === '/api/chat/tts/audio' && method === 'POST') return await sendSpeech(req, res, { tts, source: resolveChatSpeechSource(store, await body(req)), accounts: authenticate.accounts, permission: 'chat' });
     if (path === '/api/chat/threads') {
       if (method === 'GET') return json(res, 200, { threads: store.list() });
       if (method === 'POST') {
@@ -163,7 +170,8 @@ let closing = false;
 function shutdown() {
   if (closing) return; closing = true;
   for (const controller of active.values()) controller.abort();
-  server.close(() => { stores.close(); authenticate.accounts.close(); process.exit(0); });
+  const closed = Promise.resolve(tts.close()).catch(() => {});
+  server.close(() => { closed.finally(() => { stores.close(); authenticate.accounts.close(); process.exit(0); }); });
   server.closeIdleConnections();
   setTimeout(() => server.closeAllConnections(), 5000).unref();
 }

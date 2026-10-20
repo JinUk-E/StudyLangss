@@ -19,7 +19,9 @@
     "setup-push": "node scripts/setup-push.mjs",
     "send-push": "node scripts/send-push.mjs",
     "setup-updater": "node scripts/setup-updater.mjs",
-    "update-status": "node scripts/update-status.mjs"
+    "update-status": "node scripts/update-status.mjs",
+    "setup-qwen-tts": "node scripts/setup-qwen-tts.mjs",
+    "check-qwen-tts": "node scripts/check-qwen-tts.mjs"
   },
   "dependencies": {
     "web-push": "3.6.7"
