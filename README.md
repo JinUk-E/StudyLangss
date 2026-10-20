@@ -102,6 +102,8 @@ npm run setup-updater -- --origin https://starlightforge.duckdns.org
 
 브라우저는 Basic 인증 정보를 기억할 수 있습니다. 다른 계정을 시험할 때는 별도 브라우저 프로필이나 시크릿 창을 사용하고, 상단의 현재 아이디·권한을 확인하세요. 웹에서 확실한 로그아웃을 보장하지 않습니다.
 
+학습·AI 대화에서 왼쪽 상단 로고로 홈에 돌아와도 로그인한 계정의 메뉴를 유지합니다. 공개 페이지는 세 영역의 기존 로그인 상태를 팝업 없이 확인하며, 브라우저에는 최근 확인한 영역 이름만 기록합니다. 이 수정 적용 시 학습·채팅 서버도 함께 재시작하세요.
+
 [Mac 계정 관리 안내](deploy/MAC-ACCOUNTS.md) · [그림 중심 사용 안내](docs/accounts/guide.html) · [기획·검토 기록](docs/accounts/critique.md)
 
 ## 스텔라 AI 대화

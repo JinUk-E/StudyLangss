@@ -122,9 +122,10 @@ const server = createServer(async (req, res) => {
   try {
     if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
+    const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
+    if (method === 'GET' && path === '/api/chat/session') return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null });
     if (!await authenticate(req, res)) return;
     sameOrigin(req);
-    const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
     const sharedAsset = ['/shared/shell.js', '/shared/shell.css'].includes(path) && ['GET', 'HEAD'].includes(method);
     if (!sharedAsset && !requireAccess(req, res, 'chat')) return;
     if (path === '/chat' && ['GET', 'HEAD'].includes(method)) { res.writeHead(302, { Location: '/chat/' }); return res.end(); }

@@ -137,8 +137,10 @@ const server = createServer(async (req, res) => {
   try {
     if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
-    if (!await authenticate(req, res)) return;
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    // Discover an existing Basic login in this path scope without prompting public visitors.
+    if (req.method === 'GET' && url.pathname === '/api/session') return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null });
+    if (!await authenticate(req, res)) return;
     const sharedAsset = ['/shared/shell.js', '/shared/shell.css'].includes(url.pathname) && ['GET', 'HEAD'].includes(req.method);
     if (!sharedAsset && !requireAccess(req, res, 'study')) return;
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {

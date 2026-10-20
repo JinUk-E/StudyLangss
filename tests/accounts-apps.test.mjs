@@ -90,6 +90,33 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
+test('path-scoped session probes never challenge and only return a live authenticated account', async () => {
+  const studyOnly = await accounts.create({ username: 'probe-study', password: passwords.alice, permissions: ['study'] });
+  for (const [base, path] of [[study.base, '/api/session'], [chat.base, '/api/chat/session']]) {
+    for (const authorization of [undefined, 'Basic !!!', `Basic ${Buffer.from('probe-study:incorrect-password').toString('base64')}`]) {
+      const response = await fetch(base + path, { headers: authorization ? { Authorization: authorization } : {} });
+      assert.equal(response.status, 200); assert.equal(response.headers.get('www-authenticate'), null);
+      assert.match(response.headers.get('cache-control'), /no-store/);
+      assert.deepEqual(await response.json(), { user: null });
+    }
+    const response = await fetch(base + path + '?userId=owner', { headers: { Authorization: `Basic ${Buffer.from(`probe-study:${passwords.alice}`).toString('base64')}` } });
+    const result = await response.json();
+    assert.equal(response.status, 200); assert.equal(result.user.id, studyOnly.id);
+    assert.deepEqual(result.user.permissions, ['study']); assert.equal(result.user.isAdmin, false);
+    for (const key of ['hash', 'salt', 'password', 'credentials']) assert.ok(!JSON.stringify(result).includes(`"${key}"`));
+  }
+  const headers = { Authorization: `Basic ${Buffer.from(`probe-study:${passwords.alice}`).toString('base64')}` };
+  assert.equal((await fetch(chat.base + '/api/chat/threads', { headers })).status, 403);
+  await accounts.update(studyOnly.id, { permissions: ['chat'] });
+  for (const [base, path] of [[study.base, '/api/session'], [chat.base, '/api/chat/session']]) assert.deepEqual((await (await fetch(base + path, { headers })).json()).user.permissions, ['chat']);
+  assert.equal((await fetch(study.base + '/api/backup', { headers })).status, 403);
+  await accounts.update(studyOnly.id, { enabled: false });
+  for (const [base, path] of [[study.base, '/api/session'], [chat.base, '/api/chat/session']]) {
+    const response = await fetch(base + path, { headers });
+    assert.equal(response.headers.get('www-authenticate'), null); assert.deepEqual(await response.json(), { user: null });
+  }
+});
+
 test('study stores isolate attempts, custom material, practice, backup and TTS source lookup', async () => {
   const owner = await data(study.base, 'owner', '/api/state');
   assert.equal(owner.settings.level, 'N2'); assert.equal(owner.stats.totalAnswered, 1);

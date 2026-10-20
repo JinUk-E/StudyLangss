@@ -44,13 +44,48 @@ function applyUser(user) {
 homeMenu(null);
 const controller = new AbortController();
 const timer = setTimeout(() => controller.abort(), 10000);
-const sessionPath = section === 'study' ? '/api/me' : section === 'chat' ? '/api/chat/me' : isPrivate ? '/api/portfolio/me' : '/api/portfolio/session';
-fetch(sessionPath, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
-  .then(async response => {
-    if (!response.ok) throw new Error('계정 확인 실패');
-    const data = await response.json(); applyUser(data.user || null);
-  }).catch(() => {
+const sessionAreas = { portfolio: '/api/portfolio/session', study: '/api/session', chat: '/api/chat/session' };
+const sessionHintKey = 'starlight.session-area';
+function rememberArea(area) {
+  try { if (area) sessionStorage.setItem(sessionHintKey, area); else sessionStorage.removeItem(sessionHintKey); } catch { /* Browser storage is optional. Authorization always comes from a server. */ }
+}
+function rememberedArea() {
+  try { const area = sessionStorage.getItem(sessionHintKey); return Object.hasOwn(sessionAreas, area) ? area : null; } catch { return null; }
+}
+async function sessionUser(path, signal = controller.signal) {
+  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal });
+  if (!response.ok) throw new Error('계정 확인 실패');
+  const data = await response.json(); return data.user || null;
+}
+async function publicSession() {
+  const hint = rememberedArea();
+  const areas = [...(hint ? [hint] : []), ...Object.keys(sessionAreas).filter(area => area !== hint)];
+  // Start every optional lookup together, but prefer the last server that recognized
+  // the account. Each has a short deadline so a hung preferred service cannot hide it.
+  const pending = areas.map(area => {
+    const local = new AbortController(), abort = () => local.abort();
+    controller.signal.addEventListener('abort', abort, { once: true });
+    if (controller.signal.aborted) abort();
+    const timeout = setTimeout(abort, 2500);
+    return sessionUser(sessionAreas[area], local.signal).catch(() => null).finally(() => {
+      clearTimeout(timeout); controller.signal.removeEventListener('abort', abort);
+    });
+  });
+  for (let index = 0; index < areas.length; index++) {
+    const user = await pending[index];
+    if (user) { rememberArea(areas[index]); return user; }
+  }
+  rememberArea(null); return null;
+}
+async function resolveSession() {
+  if (!isPrivate) return publicSession();
+  const area = section === 'study' ? 'study' : section === 'chat' ? 'chat' : 'portfolio';
+  const user = await sessionUser(area === 'study' ? '/api/me' : area === 'chat' ? '/api/chat/me' : '/api/portfolio/me');
+  if (user) rememberArea(area);
+  return user;
+}
+resolveSession().then(applyUser).catch(() => {
     applyUser(null);
     top.querySelector('.account-identity').textContent = '계정 확인 필요';
     top.querySelector('.account-entry').textContent = '로그인 확인';
-  }).finally(() => clearTimeout(timer));
+  }).finally(() => { clearTimeout(timer); controller.abort(); });
