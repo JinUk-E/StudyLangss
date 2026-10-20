@@ -83,7 +83,7 @@ $('#load-career-resume').onclick = async () => {
     form.elements.skills.value = resume.skills.join(', ');
     resumeEntries = { experience: resume.experience, education: resume.education };
     renderEntries('experience'); renderEntries('education'); dirty = true;
-    status('원문 기반 이력서를 편집 화면에 불러왔습니다. 내용과 공개 범위를 확인한 뒤 이력서 저장을 눌러 반영하세요.');
+    status('문구를 정리한 이력서를 불러왔습니다. 내용과 공개 범위를 확인한 뒤 이력서 저장을 눌러 반영하세요.');
   } catch (error) { status(error.message); } finally { lock(false); }
 };
 function renderEntries(type) {

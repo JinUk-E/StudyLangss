@@ -10,6 +10,7 @@ import { createCredentials } from '../lib/auth.mjs';
 import { createPortfolioStore, defaultProfile, profileInput, projectInput, resumeInput } from '../lib/portfolio-store.mjs';
 import { starterProfile, starterProjects, starterResume } from '../content/portfolio-defaults.mjs';
 import { careerProfile, careerResume, careerProjects, careerAssets } from '../content/career-content.mjs';
+import previousCareerResume from '../content/career-resume-v1.json' with { type: 'json' };
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -150,6 +151,29 @@ test('replacing untouched starter resume text preserves its existing public visi
   const isolated = join(directory, 'public-starter-resume'); let store = createPortfolioStore(isolated);
   beforeCareerImport(store, starterProfile, { ...starterResume, published: true }); store.db.close(); store = createPortfolioStore(isolated);
   assert.deepEqual(store.resume(), resumeInput({ ...careerResume, published: true })); store.db.close();
+});
+
+test('readability refresh upgrades the exact previous resume once and preserves public visibility', () => {
+  const isolated = join(directory, 'readable-resume'); let store = createPortfolioStore(isolated);
+  store.saveResume({ ...previousCareerResume, published: true });
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('resume-readable-copy-v1');
+  const previousProjects = store.projects(), previousProfile = store.profile();
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.resume(), { ...resumeInput(careerResume), published: true });
+  assert.deepEqual(store.projects(), previousProjects); assert.deepEqual(store.profile(), previousProfile);
+  const custom = { ...store.resume(), summary: '이후 직접 다듬은 소개', published: false };
+  store.saveResume(custom); store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.resume(), custom); store.db.close();
+});
+
+test('readability refresh preserves even a single user edit to the previous generated resume', () => {
+  for (const [index, patch] of [{ headline: '직접 정한 제목' }, { summary: '새로 작성한 소개', published: true }, { skills: ['Unity', '직접 추가한 기술'] }].entries()) {
+    const isolated = join(directory, `custom-readable-resume-${index}`); let store = createPortfolioStore(isolated);
+    const custom = resumeInput({ ...previousCareerResume, ...patch });
+    store.saveResume(custom); store.db.prepare('DELETE FROM migrations WHERE id=?').run('resume-readable-copy-v1');
+    store.db.close(); store = createPortfolioStore(isolated);
+    assert.deepEqual(store.resume(), custom); store.db.close();
+  }
 });
 
 test('career migration rolls back profile, resume, images, projects, and marker if its final project fails', () => {

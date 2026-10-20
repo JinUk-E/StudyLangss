@@ -12,25 +12,25 @@ export const careerProfile = {
 };
 
 export const careerResume = {
-  headline: 'Unity 클라이언트 개발 · SDK 연동과 빌드 자동화',
-  summary: 'Unity/C#으로 모바일 게임을 개발해 App Store와 Google Play에 출시했습니다. 페달의민족(Tour de Indoor)에서는 클라이언트 개발을 전담하고 Mac Studio에서 Jenkins·fastlane 기반 자동 빌드를 담당했습니다. SDK 요청의 실패 처리와 리소스 수명, 플랫폼별 빌드 오류를 확인하고 반복 가능한 개발 절차로 정리합니다.\n\nBlindMaze는 기획·개발부터 양대 스토어 출시까지 단독으로 수행했습니다. 팀 프로젝트인 페달의민족에서는 AI 도구를 활용했으며 아트·서버 개발은 팀원이 담당했습니다. AI 도구는 코드 탐색·구현·검토의 보조로 사용하고, 코드 변경과 실행 결과를 함께 확인합니다.',
-  skills: ['Unity', 'C#', 'UGUI', 'URP', 'Shader Graph', 'Input System', 'UniTask', 'DOTween', 'Addressables', 'Localization', 'Unity Profiler', 'Memory Profiler', 'Android / Gradle', 'iOS / Xcode', 'WebGL', 'Firebase Analytics', 'Google AdMob · UMP', 'TheBackend', 'Jenkins', 'fastlane', 'Inno Setup', 'Git', 'REST API', 'AWS S3', 'MySQL', 'Python', 'C++', 'OpenCV', 'JavaScript / Node.js', 'Claude Code', 'Codex', 'Gemini CLI', 'UnityMCP', 'Ollama'],
+  headline: '게임을 만들고, 출시까지 이어가는 Unity 개발자',
+  summary: 'Unity와 C#으로 게임과 인터랙티브 콘텐츠를 개발하는 정진욱입니다.\n\n개인 게임 BlindMaze는 기획부터 App Store·Google Play 출시까지 혼자 진행했습니다. 페달의민족(Tour de Indoor)에서는 팀의 클라이언트 개발을 전담하고, Android·iOS 자동 빌드를 구성했습니다.\n\n게임 기능 구현과 함께 SDK 연동, 리소스 관리, 빌드·배포 과정을 다룹니다. 문제가 생겼을 때 원인을 찾고, 다음 작업을 편하게 이어 갈 수 있도록 개발 환경을 정리합니다.',
+  skills: ['Unity / C#', 'UGUI / Input System', 'URP / Shader Graph', 'UniTask / DOTween', 'Addressables / Localization', 'Unity Profiler / Memory Profiler', 'Android / Gradle', 'iOS / Xcode', 'WebGL', 'Firebase Analytics', 'AdMob / UMP / TheBackend', 'Jenkins / fastlane / Inno Setup', 'Git / REST API / AWS S3', 'Python / MySQL', 'C++ / OpenCV', 'JavaScript / Node.js', 'Claude Code / Codex / Gemini CLI', 'UnityMCP / Ollama'],
   experience: [
     {
       title: 'Unity 클라이언트 개발', organization: '(주)이노시뮬레이션', period: '2025.02 – 재직 중',
-      description: 'Unity/C#으로 PC/XR 콘텐츠의 상호작용, UI, 애니메이션과 파티클 제어를 구현했습니다. Unity Profiler로 화면 동작을 확인하고 현실 화면과 가상 화면이 겹쳐 보이는 문제의 관련 설정을 조정했습니다.\n\n기관용 런처의 파일 점유·쓰기 권한 오류를 구분하고 필요한 경우 재시도하도록 처리했습니다. 다운로드 파일 확인, Jenkins 빌드 연동과 설치 파일 생성을 자동화해 Windows 배포 절차를 정리했습니다.'
+      description: '• PC·XR 콘텐츠의 UI와 상호작용을 개발하고, 애니메이션과 파티클을 제어했습니다.\n• Unity Profiler로 화면 동작을 살펴보고, 현실 화면과 가상 화면이 겹쳐 보이는 문제의 설정을 조정했습니다.\n• 기관용 런처에서 파일 점유와 쓰기 권한 오류를 구분해 처리했습니다.\n• 다운로드 파일 확인부터 Jenkins 빌드 연동, 설치 파일 생성까지 Windows 배포 과정을 자동화했습니다.'
     },
     {
       title: '클라이언트 개발', organization: '주식회사 토즈', period: '2022.11 – 2023.12',
-      description: 'Addressables와 AWS S3로 원격 리소스를 내려받아 실행 중 불러오는 기능을 구현하고, 화면 전환 후 사용이 끝난 리소스의 핸들을 해제하도록 관리했습니다.\n\n서버 요청과 데이터 변환 코드를 나누고 응답 지연·실패에 대한 시간 제한과 재시도를 처리했습니다. Stable Diffusion API가 생성한 이미지를 받아 화면에 표시하는 기능을 개발했습니다.'
+      description: '• Addressables와 AWS S3를 연결해 원격 리소스를 내려받고, 실행 중 불러오는 기능을 만들었습니다.\n• 화면 전환 후 사용이 끝난 리소스를 해제하도록 관리했습니다.\n• 서버 요청과 데이터 변환 코드를 나누고, 응답이 늦거나 실패하면 시간 제한과 재시도가 동작하도록 구성했습니다.\n• Stable Diffusion API로 생성한 이미지를 받아 화면에 보여주는 기능을 개발했습니다.'
     },
     {
       title: 'R&D 엔지니어', organization: '스냅태그 주식회사', period: '2022.04 – 2022.10',
-      description: 'C++와 OpenCV 기반으로 이미지에 삽입한 워터마크를 읽는 알고리즘을 연구했습니다. 이미지 처리 코드의 동작을 분석하고 판정 로직을 개선했습니다. 오류 검출·정정 코드와 이미지 조건별 인식 결과를 시험하고 문제가 발생하는 조건을 문서로 정리했습니다.'
+      description: '• C++와 OpenCV로 이미지 속 워터마크를 읽는 알고리즘을 연구했습니다.\n• 이미지 처리 코드의 동작을 분석하고, 워터마크를 판정하는 로직을 개선했습니다.\n• 오류 검출·정정 코드와 이미지 조건별 인식 결과를 시험하고, 잘 인식되지 않는 조건을 기록했습니다.'
     },
     {
       title: '데이터 엔지니어 / 분석', organization: '(주)조인트리 · (주)TNMS', period: '2020.09 – 2022.04',
-      description: 'Python과 SQL로 공공데이터의 수집·정리·DB 저장을 자동화하고 누락되거나 잘못된 데이터를 확인했습니다. REST API 기반 데이터 전송과 반복 리포팅을 자동화했으며, 분석 도구 사용법과 데이터 처리 기준을 문서화했습니다.'
+      description: '• Python과 SQL로 공공데이터를 수집·정리해 DB에 저장하는 과정을 자동화했습니다.\n• 누락되거나 잘못된 데이터를 확인하고, REST API 데이터 전송과 반복 리포트 작업을 자동화했습니다.\n• 분석 도구 사용법과 데이터 처리 기준을 문서로 정리했습니다.'
     }
   ],
   education: [
