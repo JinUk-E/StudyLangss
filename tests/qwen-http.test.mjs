@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { createCredentials, loadAuth } from '../lib/auth.mjs';
 import { createStore } from '../lib/store.mjs';
 import { createChatStore } from '../lib/chat-store.mjs';
@@ -45,7 +46,7 @@ async function audio(base, name, path, body) {
   return response;
 }
 async function start(script) {
-  const child = spawn(process.execPath, [script], {
+  const child = spawn(process.execPath, ['--import', pathToFileURL(join(directory, 'qwen-loopback.mjs')).href, script], {
     cwd: new URL('..', import.meta.url), stdio: ['ignore', 'pipe', 'pipe'], env: {
       ...process.env, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'),
       DATA_DIR: join(directory, 'study'), CHAT_DATA_DIR: join(directory, 'chat'),
@@ -129,7 +130,22 @@ before(async () => {
       holdStarted?.();
     } else respond();
   });
-  fake.listen(8877, '127.0.0.1'); await once(fake, 'listening');
+  fake.listen(0, '127.0.0.1'); await once(fake, 'listening');
+  // Deployment tests run while the real Qwen worker owns 8877. Redirect only
+  // these fixture child processes to our ephemeral mock; production configuration
+  // and its fixed-loopback validation remain untouched.
+  await writeFile(join(directory, 'qwen-loopback.mjs'), `
+    import http from 'node:http';
+    import { syncBuiltinESMExports } from 'node:module';
+    const request = http.request;
+    http.request = function(options, ...args) {
+      if (options?.host === '127.0.0.1' && options.port === 8877) {
+        options = { ...options, port: ${fake.address().port} };
+      }
+      return request.call(this, options, ...args);
+    };
+    syncBuiltinESMExports();
+  `);
   study = await start('server.mjs'); chat = await start('chat-server.mjs');
 });
 after(async () => {
