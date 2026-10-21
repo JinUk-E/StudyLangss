@@ -2,7 +2,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ttsPaths, privateJson, atomicPrivateJson, serviceHealth, identity } from '../lib/qwen-setup.mjs';
-import { validateQwenWav } from '../lib/qwen-audio.mjs';
+import { validateQwenWav, normalizeQwenWav } from '../lib/qwen-audio.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 export async function checkSamples(config, { fetchImpl = fetch } = {}) {
@@ -18,7 +18,7 @@ export async function checkSamples(config, { fetchImpl = fetch } = {}) {
     for await (const part of response.body) { size += part.length; if (size > limit) throw Error('샘플 음성 크기가 너무 큽니다.'); chunks.push(part); }
     const audio = Buffer.concat(chunks);
     if (!validateQwenWav(audio, response.headers.get('content-type'))) throw Error(`${language} 샘플의 PCM16 mono 24kHz WAV 형식·길이를 확인하지 못했습니다.`);
-    samples.push({ language, audio });
+    samples.push({ language, audio: normalizeQwenWav(audio) });
   }
   return samples;
 }
