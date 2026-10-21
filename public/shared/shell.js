@@ -2,7 +2,7 @@ import '/pwa/register.js';
 
 const section = document.body.dataset.section || 'home';
 const top = document.createElement('header'); top.className = 'global-header';
-top.innerHTML = `<a class="global-brand" href="/"><span class="brand-monogram">SF</span><span><span data-site-name>별빛공방</span><small>개인 작업실</small></span></a><nav class="global-tabs" aria-label="주 영역"><a href="/" data-section-tab="home">홈</a><a href="/chat/" data-section-tab="chat">AI 대화</a><a href="/study/" data-section-tab="study">학습</a></nav><div class="account-summary" aria-label="현재 계정"><span class="account-identity" role="status">계정 확인 중</span><a class="account-entry" href="/app/" hidden>로그인</a></div>`;
+top.innerHTML = `<a class="global-brand" href="/"><span class="brand-monogram" aria-hidden="true"><img src="/pwa/starlight-mark.png" alt="" width="192" height="192"></span><span><span data-site-name>별빛공방</span><small>개인 작업실</small></span></a><nav class="global-tabs" aria-label="주 영역"><a href="/" data-section-tab="home">홈</a><a href="/chat/" data-section-tab="chat">AI 대화</a><a href="/study/" data-section-tab="study">학습</a></nav><div class="account-summary" aria-label="현재 계정"><span class="account-identity" role="status">계정 확인 중</span><a class="account-entry" href="/app/" hidden>로그인</a></div>`;
 document.body.prepend(top);
 // Re-selecting home should not reload every module, image and session lookup.
 // Keep ordinary navigation (including query/hash cleanup and modified clicks).

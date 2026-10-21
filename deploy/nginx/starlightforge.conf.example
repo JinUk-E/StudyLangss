@@ -6,6 +6,7 @@ map $uri $starlight_dynamic_key {
     ~^/site/(?:styles\.css|editorial\.css|app\.js|shared\.js|resume\.js)$ "";
     ~^/shared/shell\.(?:css|js)$ "";
     ~^/pwa/(?:register\.js|app\.js|styles\.css|icon\.svg|icon-192\.png|icon-512\.png|apple-touch-icon\.png)$ "";
+    /pwa/starlight-mark.png "";
     /sw.js "";
     /manifest.webmanifest "";
 }
