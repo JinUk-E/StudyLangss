@@ -1,0 +1,44 @@
+name: Mac update validation
+
+on:
+  push:
+    branches: [starlightForge]
+    paths:
+      - '.github/workflows/macos-validation.yml'
+      - 'tests/**'
+      - 'lib/**'
+      - 'scripts/**'
+      - 'content/**'
+      - 'public/**'
+      - '*.mjs'
+      - 'package*.json'
+      - 'tts/manifest.json'
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.x'
+      - name: Validate with the updater's restricted environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          control="$RUNNER_TEMP/starlight-updater-validation"
+          mkdir -p "$control/home"
+          : > "$control/empty.npmrc"
+          node_bin="$(dirname "$(command -v node)")"
+          npm_cli="$(node -e 'process.stdout.write(require("node:fs").realpathSync(process.argv[1]))' "$(command -v npm)")"
+          isolated=(env -i "PATH=$node_bin:/opt/homebrew/bin:/usr/bin:/bin" "HOME=$control/home" "TMPDIR=$control" LANG=en_US.UTF-8 CI=1 GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null "npm_config_userconfig=$control/empty.npmrc" "npm_config_cache=$control/npm-cache")
+          "${isolated[@]}" node --version
+          "${isolated[@]}" node -p 'process.platform + " / " + process.arch'
+          "${isolated[@]}" node "$npm_cli" ci --ignore-scripts --no-audit --no-fund
+          "${isolated[@]}" node --test tests/*.test.mjs
