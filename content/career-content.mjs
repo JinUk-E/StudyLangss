@@ -37,7 +37,7 @@ export const careerResume = {
     { title: '수학교육 전공 · 석사 졸업', organization: '경희대학교 교육대학원', period: '2015.02 – 2017.02', description: '' },
     { title: '수학과 · 학사 졸업', organization: '광운대학교', period: '2008.03 – 2015.02', description: '' }
   ],
-  published: false
+  published: true
 };
 
 export const careerAssets = [

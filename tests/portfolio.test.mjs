@@ -32,7 +32,12 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 test('portfolio is public while administration, uploads, and writes require login and same-origin requests', async () => {
-  for (const path of ['/', '/site/styles.css', '/site/app.js', '/site/shared.js', '/api/portfolio/public', '/robots.txt']) assert.equal((await call(path, {}, false)).status, 200, path);
+  for (const path of ['/', '/portfolio/', '/resume/', '/api/portfolio/resume', '/site/styles.css', '/site/app.js', '/site/shared.js', '/api/portfolio/public', '/robots.txt']) {
+    const response = await call(path, {}, false); assert.equal(response.status, 200, path); assert.equal(response.headers.get('www-authenticate'), null, path);
+  }
+  const { projects } = await (await call('/api/portfolio/public', {}, false)).json();
+  assert.ok(projects.length > 0);
+  for (const project of projects) assert.equal((await call(`/projects/${project.id}`, {}, false)).status, 200);
   for (const path of ['/admin/', '/site/admin.js', '/api/portfolio/manage']) assert.equal((await call(path, {}, false)).status, 401, path);
   for (const path of ['/api/portfolio/projects', '/api/portfolio/images']) assert.equal((await call(path, { method: 'POST', body: '{}' }, false)).status, 401);
   assert.equal((await call('/api/portfolio/profile', { method: 'PUT', body: '{}' }, false)).status, 401);
@@ -75,13 +80,15 @@ test('profile editing publishes only validated fields; portfolio data survives r
   assert.equal(store.project(project.id).title, fixture().title); store.db.close();
 });
 
-test('resume stays private until explicitly published and persists after reopening', async () => {
-  assert.equal((await call('/resume/', {}, false)).status, 401);
-  assert.equal((await call('/api/portfolio/resume', {}, false)).status, 401);
+test('resume defaults public but deliberate private settings remain enforced and persist after reopening', async () => {
+  assert.equal((await call('/resume/', {}, false)).status, 200);
+  assert.equal((await call('/api/portfolio/resume', {}, false)).status, 200);
   assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: '{}' }, false)).status, 401);
   const { resume } = await (await call('/api/portfolio/manage')).json();
   const value = { ...resume, headline: '프로젝트 이력서', summary: '직접 입력한 소개', experience: [{ title: '실제 입력 경력', organization: '테스트 기관', period: '2026', description: '입력한 설명' }], education: [], published: false };
   assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify(value) })).status, 200);
+  assert.equal((await call('/resume/', {}, false)).status, 401);
+  assert.equal((await call('/api/portfolio/resume', {}, false)).status, 401);
   assert.equal((await call('/resume/')).status, 200);
   assert.equal((await call('/api/portfolio/resume', { method: 'PUT', body: JSON.stringify({ ...value, published: true }) })).status, 200);
   assert.equal((await call('/resume/', {}, false)).status, 200);
@@ -99,7 +106,7 @@ test('starter and career content is seeded once and user edits and deletions sur
   assert.equal(store.projects().length, 7); assert.ok(store.profile().intro.length > 20);
   assert.deepEqual(store.profile(), profileInput(careerProfile));
   assert.deepEqual(store.resume(), resumeInput(careerResume));
-  assert.equal(store.resume().published, false);
+  assert.equal(store.resume().published, true);
   assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, 5);
   for (const asset of careerAssets) { assert.ok(store.image(asset.path).content.length > 0); assert.ok(store.publicImage(asset.path)); }
   const id = careerProjects[0].id, editedId = careerProjects[1].id;
@@ -203,6 +210,43 @@ test('imported screenshots follow project visibility and the career resume templ
   assert.equal((await call(project.cover, {}, false)).status, 401);
   assert.equal((await call(project.cover)).status, 200);
   await call(`/api/portfolio/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
+});
+
+test('public rollout publishes every existing item once without altering copy, images, IDs or later private choices', () => {
+  const isolated = join(directory, 'public-rollout'); let store = createPortfolioStore(isolated);
+  const resume = { ...store.resume(), summary: '직접 쓴 소개와 경력은 그대로', published: false };
+  store.saveResume(resume);
+  const { path } = store.addImage(png);
+  const draft = store.saveProject({ ...fixture(), cover: path, gallery: [path] });
+  const before = store.projects();
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('public-career-content-v1');
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.resume(), { ...resume, published: true });
+  assert.deepEqual(store.projects(), before.map(project => ({ ...project, published: true })));
+  assert.equal(store.publicImage(path), true);
+  assert.deepEqual(Buffer.from(store.image(path).content), png);
+  store.saveResume(resume); store.saveProject(draft, draft.id);
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.resume(), resume);
+  assert.equal(store.project(draft.id).published, false);
+  assert.equal(store.publicImage(path), false);
+  assert.ok(store.db.prepare('SELECT 1 FROM migrations WHERE id=?').get('public-career-content-v1'));
+  store.db.close();
+});
+
+test('public rollout rolls back resume and marker if a project cannot be published', () => {
+  const isolated = join(directory, 'failed-public-rollout'); let store = createPortfolioStore(isolated);
+  const resume = { ...store.resume(), published: false }; store.saveResume(resume);
+  const draft = store.saveProject(fixture());
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('public-career-content-v1');
+  store.db.exec(`CREATE TRIGGER fail_public_project BEFORE UPDATE ON projects BEGIN SELECT RAISE(ABORT, 'injected public rollout failure'); END`);
+  store.db.close(); assert.throws(() => createPortfolioStore(isolated), /injected public rollout failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM documents WHERE id=?').get('resume').json), resume);
+  assert.equal(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(draft.id).json).published, false);
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('public-career-content-v1'), undefined);
+  db.exec('DROP TRIGGER fail_public_project'); db.close();
+  store = createPortfolioStore(isolated); assert.equal(store.resume().published, true); assert.equal(store.project(draft.id).published, true); store.db.close();
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {

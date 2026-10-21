@@ -55,6 +55,11 @@ test('account management is owner-only while session probes do not challenge pub
 });
 
 test('guest accounts cannot open private resume, unpublished images, or edit public content', async () => {
+  for (const name of [null, 'study-guest', 'chat-guest']) {
+    for (const path of ['/resume/', '/api/portfolio/resume', '/portfolio/']) assert.equal((await call(path, {}, name)).status, 200, path);
+  }
+  const { resume } = await json('/api/portfolio/resume');
+  await json('/api/portfolio/resume', mutate('PUT', { ...resume, published: false }));
   for (const name of ['study-guest', 'chat-guest']) {
     for (const path of ['/admin/', '/site/admin.js', '/api/portfolio/manage', '/api/portfolio/career-template', '/api/portfolio/resume', '/resume/']) assert.equal((await call(path, {}, name)).status, 403, path);
     assert.equal((await call('/api/portfolio/profile', mutate('PUT', {}), name)).status, 403);

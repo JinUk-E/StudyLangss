@@ -10,7 +10,7 @@ export const starterResume = {
   headline: '프로젝트 중심 이력서',
   summary: '개인 서버에서 사용할 웹 도구를 만들고 운영합니다. 아래에는 현재 공개된 프로젝트에서 사용한 기술과 작업 내용을 정리했습니다.',
   skills: ['JavaScript', 'Node.js', 'SQLite', 'Nginx', 'Ollama'],
-  experience: [], education: [], published: false
+  experience: [], education: [], published: true
 };
 const base = { role: '개인 프로젝트', year: '2026', repository: 'https://github.com/JinUk-E/StudyLangss', cover: '', gallery: [], published: true, featured: false };
 export const starterProjects = [

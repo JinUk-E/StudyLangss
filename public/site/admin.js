@@ -31,7 +31,7 @@ function openEditor(project = null) {
   if (saving || uploading || (dirty && !confirm('저장하지 않은 변경을 버리고 이동할까요?'))) return;
   editing = project?.id || null; cover = project?.cover || ''; gallery = [...(project?.gallery || [])];
   const form = $('#project-form'); form.reset();
-  const values = project || { title: '', category: 'PROJECT', year: '', summary: '', description: '', role: '', tags: [], link: '', repository: '', order: 0, published: false, featured: false };
+  const values = project || { title: '', category: 'PROJECT', year: '', summary: '', description: '', role: '', tags: [], link: '', repository: '', order: 0, published: true, featured: false };
   for (const name of ['title', 'category', 'year', 'summary', 'description', 'role', 'link', 'repository', 'order']) form.elements[name].value = values[name];
   form.elements.tags.value = values.tags.join(', '); form.elements.published.checked = values.published; form.elements.featured.checked = values.featured;
   $('#editor-title').textContent = project ? '프로젝트 수정' : '새 프로젝트'; $('#editor').hidden = false; dirty = false; previews(); $('#editor').scrollIntoView({ behavior: 'smooth', block: 'start' }); form.elements.title.focus();
