@@ -288,6 +288,8 @@ npm run backup
 
 ## 구현 상태와 검증
 
+`starlightForge`의 코드 변경은 [Mac update validation](https://github.com/JinUk-E/StudyLangss/actions/workflows/macos-validation.yml)에서 Apple Silicon macOS·Node.js 24로 검증합니다. 운영 도우미처럼 환경변수를 제한하고 `npm ci --ignore-scripts`와 전체 Node 테스트를 실행합니다. [2026-10-21 실행](https://github.com/JinUk-E/StudyLangss/actions/runs/39548511484)은 **183개 통과·실패 0·건너뜀 0**입니다. 운영 Mac의 Node 경로·설치 상태·네트워크와 실제 LaunchAgent 배포는 별도 확인 대상이며, CI는 운영 서버를 변경하지 않습니다.
+
 Qwen 변경을 포함해 Windows Node.js 24.15.0에서 전체 회귀 테스트를 실행했습니다. 계정 격리·권한 회수·음성 캐시 분리·저장된 답변만 읽기·설치 활성화·WAV 검증·큐 제한을 확인했습니다. Python 표준 라이브러리의 모의 서비스 테스트 7개도 통과했습니다. 최신 결과는 [검증 기록](docs/qwen-tts/verification.md)에 보관합니다.
 
 팀의 운영·보안·UI 검토를 반영했습니다. 임시 계정과 테스트 음원으로 브라우저의 답변 읽기·한국어 뜻 읽기·언어 변경 및 390px 배치를 확인했습니다. **실제 Mac의 Nginx·MLX 음성·LaunchAgent, 휴대폰 로그인·푸시 수신은 해당 기기에서 확인해야 합니다.**
