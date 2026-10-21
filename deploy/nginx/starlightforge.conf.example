@@ -1,5 +1,20 @@
 # Starlight Forge: DNS-01 certificates; port 80 remains available for existing Certbot.
-limit_req_zone $binary_remote_addr zone=starlight_requests:10m rate=5r/s;
+# Public UI files must not consume the API/login/document request budget.
+# Keep a separate, bounded budget; do not exempt arbitrary *.js API paths.
+map $uri $starlight_dynamic_key {
+    default $binary_remote_addr;
+    ~^/site/(?:styles\.css|editorial\.css|app\.js|shared\.js|resume\.js)$ "";
+    ~^/shared/shell\.(?:css|js)$ "";
+    ~^/pwa/(?:register\.js|app\.js|styles\.css|icon\.svg|icon-192\.png|icon-512\.png|apple-touch-icon\.png)$ "";
+    /sw.js "";
+    /manifest.webmanifest "";
+}
+map $starlight_dynamic_key $starlight_asset_key {
+    default "";
+    "" $binary_remote_addr;
+}
+limit_req_zone $starlight_dynamic_key zone=starlight_dynamic:10m rate=5r/s;
+limit_req_zone $starlight_asset_key zone=starlight_assets:10m rate=30r/s;
 
 server {
     listen 443 ssl;
@@ -13,7 +28,8 @@ server {
     proxy_max_temp_file_size 0;
 
     client_max_body_size 32m;
-    limit_req zone=starlight_requests burst=20 nodelay;
+    limit_req zone=starlight_dynamic burst=20 nodelay;
+    limit_req zone=starlight_assets burst=100 nodelay;
     limit_req_status 429;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy same-origin always;

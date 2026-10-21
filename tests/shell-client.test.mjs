@@ -9,6 +9,8 @@ const owner = { id: 'owner', username: 'owner', isAdmin: true, permissions: ['st
 const settle = async () => { for (let index = 0; index < 8; index++) await new Promise(resolve => setImmediate(resolve)); };
 class Element {
   children = []; dataset = {}; attributes = {}; className = ''; textContent = ''; hidden = false;
+  listeners = new Map();
+  addEventListener(type, callback) { this.listeners.set(type, callback); }
   constructor(tag = 'div') { this.tagName = tag; }
   append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
   prepend(child) { child.parent = this; this.children.unshift(child); }
@@ -18,6 +20,7 @@ class Element {
   get nextSibling() { return this.parent?.children[this.parent.children.indexOf(this) + 1] || null; }
   set innerHTML(html) {
     if (!html.includes('global-brand')) return;
+    const brand = new Element('a'); brand.className = 'global-brand'; this.append(brand);
     for (const section of ['home', 'chat', 'study']) { const anchor = new Element('a'); anchor.dataset.sectionTab = section; this.append(anchor); }
     for (const className of ['account-identity', 'account-entry']) { const node = new Element('span'); node.className = className; this.append(node); }
     const name = new Element('span'); name.attributes['data-site-name'] = ''; this.append(name);
@@ -30,12 +33,13 @@ class Element {
   }
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
-function page({ section = 'home', pathname = '/', storage = new Map(), rejectStorage = false, omitStorage = false, respond = () => ({ user: null }) } = {}) {
+function page({ section = 'home', pathname = '/', search = '', hash = '', storage = new Map(), rejectStorage = false, omitStorage = false, respond = () => ({ user: null }) } = {}) {
   const body = new Element('body'); body.dataset.section = section;
   const requests = [], events = [], timers = new Map(); let nextTimer = 0;
-  const context = { document: { body, createElement: tag => new Element(tag) }, location: { pathname, search: '' }, URLSearchParams, AbortController,
+  const scrolls = [];
+  const context = { document: { body, createElement: tag => new Element(tag) }, location: { pathname, search, hash }, URLSearchParams, AbortController,
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
-    window: { dispatchEvent(event) { events.push(event); } },
+    window: { dispatchEvent(event) { events.push(event); }, scrollTo(options) { scrolls.push(options); } },
     setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; }, clearTimeout(id) { timers.delete(id); },
     async fetch(path, options = {}) {
       requests.push({ path, ...options });
@@ -47,12 +51,31 @@ function page({ section = 'home', pathname = '/', storage = new Map(), rejectSto
   if (rejectStorage) Object.defineProperty(context, 'sessionStorage', { get() { throw new Error('storage denied'); } });
   else if (!omitStorage) context.sessionStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
   vm.runInNewContext(source, context);
-  return { body, requests, events, timers, storage, top: body.children[0],
+  return { body, requests, events, timers, storage, scrolls, top: body.children[0],
+    clickBrand(options = {}) { const event = { button: 0, ...options, preventDefault() { this.defaultPrevented = true; } }; body.children[0].querySelector('.global-brand').listeners.get('click')(event); return Boolean(event.defaultPrevented); },
     timer(delay) { const pending = [...timers].filter(([, value]) => value.delay === delay); for (const [id, value] of pending) { timers.delete(id); value.callback(); } },
     get user() { return events.at(-1)?.detail.user; },
     links() { return body.children.find(node => node.className === 'section-sidebar')?.querySelectorAll('a').map(node => node.href) || []; },
   };
 }
+
+test('repeated home brand clicks retain the shell without reloading or repeating session requests', async () => {
+  const p = page(); await settle(); const requests = p.requests.length;
+  for (let index = 0; index < 20; index++) assert.equal(p.clickBrand(), true);
+  assert.equal(p.requests.length, requests); assert.equal(p.scrolls.length, 20);
+  assert.ok(p.scrolls.every(scroll => scroll.top === 0));
+  assert.equal(p.body.children.filter(node => node.className === 'global-header').length, 1);
+  assert.ok(p.links().includes('/portfolio/'));
+});
+
+test('brand still navigates from other pages, clears URL state, and supports new tabs', async () => {
+  for (const options of [{ pathname: '/portfolio/' }, { pathname: '/chat/' }, { pathname: '/admin/' }, { search: '?preview=1' }, { hash: '#work' }]) {
+    const p = page(options); await settle(); assert.equal(p.clickBrand(), false); assert.equal(p.scrolls.length, 0);
+  }
+  const p = page(); await settle();
+  for (const options of [{ button: 1 }, { ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }]) assert.equal(p.clickBrand(options), false);
+  assert.equal(p.scrolls.length, 0);
+});
 
 test('private chat verifies me and stores only the area; public home restores server-verified tabs and admin menus', async () => {
   const storage = new Map();

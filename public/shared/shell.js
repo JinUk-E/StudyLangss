@@ -4,6 +4,14 @@ const section = document.body.dataset.section || 'home';
 const top = document.createElement('header'); top.className = 'global-header';
 top.innerHTML = `<a class="global-brand" href="/"><span class="brand-monogram">SF</span><span><span data-site-name>별빛공방</span><small>개인 작업실</small></span></a><nav class="global-tabs" aria-label="주 영역"><a href="/" data-section-tab="home">홈</a><a href="/chat/" data-section-tab="chat">AI 대화</a><a href="/study/" data-section-tab="study">학습</a></nav><div class="account-summary" aria-label="현재 계정"><span class="account-identity" role="status">계정 확인 중</span><a class="account-entry" href="/app/" hidden>로그인</a></div>`;
 document.body.prepend(top);
+// Re-selecting home should not reload every module, image and session lookup.
+// Keep ordinary navigation (including query/hash cleanup and modified clicks).
+top.querySelector('.global-brand').addEventListener('click', event => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  if (location.pathname !== '/' || location.search || location.hash) return;
+  event.preventDefault();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+});
 top.querySelector(`[data-section-tab="${section}"]`)?.setAttribute('aria-current', 'page');
 fetch('/api/portfolio/public').then(response => response.ok ? response.json() : null).then(data => {
   if (typeof data?.profile?.name === 'string') top.querySelector('[data-site-name]').textContent = data.profile.name;
