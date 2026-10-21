@@ -50,7 +50,7 @@ npm run update-status
 launchctl print "gui/$(id -u)/org.starlightforge.updater"
 ```
 
-로컬 진단은 `.site-updater/worker-errors.log`, `worker.stderr.log`, 상태는 `status.json`입니다. 백업 번호가 `JOB`일 때:
+로컬 진단은 `.site-updater/worker-errors.log`, `worker.stderr.log`, 상태는 `status.json`입니다. `npm run update-status`는 두 진단 파일의 마지막 부분을 함께 출력합니다. 설치/테스트 명령이 실패하면 실제 출력의 마지막 부분을 `worker-errors.log`에 남깁니다. 웹에는 단계·종료 코드만 표시하고 원본 로그는 보내지 않습니다. 백업 번호가 `JOB`일 때:
 
 | 경로 | 내용 |
 |---|---|
@@ -80,5 +80,11 @@ launchctl print "gui/$(id -u)/org.starlightforge.updater"
 2. `.site-updater/`와 `~/Library/LaunchAgents/org.starlightforge.updater.plist`를 **저장소 밖의 새 사용자 전용 폴더로 이동해 보존**합니다. 백업까지 포함하므로 삭제하지 않습니다. 앱의 data와 앱 세 plist는 그대로 둡니다.
 3. 앱 저장소가 정상 `starlightForge`·깨끗한 상태이고 세 앱 LaunchAgent가 등록돼 있는지 확인합니다. 경로·환경 변수·plist를 변경했다면 지원 조건을 다시 맞춥니다.
 4. `npm run setup-updater -- --origin https://starlightforge.duckdns.org`를 다시 실행하고 앱 세 서비스를 한 번 재시작합니다.
+
+## 진단 개선이 기존 도우미에 반영되지 않을 때
+
+도우미는 `.site-updater/runtime/`에 복사된 독립 실행본입니다. 웹앱 코드를 새로 받는 것만으로 이미 설치된 도우미가 갱신되지는 않습니다. Mac에서 작업이 진행 중이지 않은지 먼저 확인하고, 최신 코드를 수동 검증·반영한 뒤 위 **설치 실패·설정 변경·작업자 재설치** 절차로 도우미를 다시 설치합니다. `.site-updater/`에는 백업도 있으므로 기존 폴더를 삭제하지 않습니다.
+
+이전 도우미의 `명령 실행 실패 (...): node` 메시지에는 실제 npm/테스트 결과가 저장되지 않았을 수 있습니다. 해당 메시지만으로 실패 원인을 확정하지 않습니다. 개선된 도우미로 같은 확인·검증을 실행한 뒤 `npm run update-status`에서 실제 결과를 확인합니다. `validating` 단계 실패라면 앱 서버를 정지하기 전이며, 검증을 건너뛰어 적용하지 않습니다.
 
 Windows에서 권한·큐·Git·백업·실패 경로를 자동 검증했습니다. 실제 Mac의 launchctl, 저장 공간, 인증서 읽기 권한, 사용자 로그인/절전, 운영 도메인에서의 재접속은 Mac에서 최종 확인해야 합니다.

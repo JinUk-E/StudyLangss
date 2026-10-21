@@ -87,7 +87,32 @@ test('command execution is bounded and reports failure without shell interpolati
   const literal = '$(echo secret); & echo unsafe';
   assert.equal((await runCommand(process.execPath, ['-e', 'process.stdout.write(process.argv[1])', literal])).stdout, literal);
   await assert.rejects(runCommand(process.execPath, ['-e', 'process.exit(7)']), /명령 실행 실패/);
+  await assert.rejects(runCommand(process.execPath, ['-e', 'console.log("private test detail"); console.error("private failure detail"); process.exit(9)']), error => {
+    assert.equal(error.exitCode, 9); assert.match(error.stdout, /private test detail/); assert.match(error.stderr, /private failure detail/);
+    assert.doesNotMatch(error.message, /private/); return true;
+  });
   await assert.rejects(runCommand(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { timeout: 25 }), /제한 시간/);
+});
+
+test('failed Node install and test steps retain private output while status contains only the failure stage and exit code', async t => {
+  for (const target of ['install', 'tests']) {
+    const f = await fixture(t), command = f.options.command;
+    f.options.command = async (file, args, extra) => {
+      if (file === f.config.nodePath && (target === 'tests' ? args[0] === '--test' : args[0] === f.config.npmCli)) {
+        return runCommand(process.execPath, ['-e', 'console.log("private-output-for-fixture"); console.error("private-error-for-fixture"); process.exit(8)']);
+      }
+      return command(file, args, extra);
+    };
+    const job = await f.apply(); await job.execute();
+    const status = job.states.at(-1);
+    assert.equal(status.phase, 'failed');
+    assert.match(status.message, target === 'tests' ? /새 버전 자동 테스트/ : /의존성 설치\(npm ci\)/);
+    assert.match(status.message, /종료 코드 8/); assert.doesNotMatch(JSON.stringify(status), /private-output|private-error/);
+    const log = await readFile(join(f.directory, 'worker-errors.log'), 'utf8');
+    assert.match(log, /private-output-for-fixture/); assert.match(log, /private-error-for-fixture/);
+    assert.equal(f.calls.some(call => call.file === '/bin/launchctl'), false);
+    assert.equal(await f.git(['rev-parse', 'HEAD']), f.original);
+  }
 });
 
 test('inspection rejects dirty checkout and changed remote', async t => {
