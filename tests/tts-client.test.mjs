@@ -24,7 +24,7 @@ class Element {
 }
 function practicePage() {
   const nodes = new Map(), plays = [], ratings = [];
-  const speech = { cancel() {}, voices: async () => ({ available: true, provider: 'qwen3-tts', voices: [{ id: 'stella-ja', name: 'Japanese', language: 'ja-JP' }, { id: 'stella-ko', name: 'Korean', language: 'ko-KR' }] }), async play(source) { plays.push(source); return true; } };
+  const speech = { volumeControl() { return new Element('label'); }, cancel() {}, voices: async () => ({ available: true, provider: 'qwen3-tts', voices: [{ id: 'stella-ja', name: 'Japanese', language: 'ja-JP' }, { id: 'stella-ko', name: 'Korean', language: 'ko-KR' }] }), async play(source) { plays.push(source); return true; } };
   const root = {
     set innerHTML(html) {
       nodes.clear(); ratings.length = 0;
@@ -54,7 +54,7 @@ test('Korean meaning playback cannot satisfy the Japanese listening completion g
 test('chat reading controls require a stored complete assistant and never start automatically', () => {
   const plays = []; let cancelled = 0;
   const document = { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment'), createTextNode: text => { const node = new Element('text'); node.textContent = text; return node; } };
-  const context = vm.createContext({ document, createSpeech: () => ({ cancel() { cancelled++; }, play(source) { plays.push(source); } }) });
+  const context = vm.createContext({ document, createSpeech: () => ({ volumeControl() { return new Element('label'); }, cancel() { cancelled++; }, play(source) { plays.push(source); } }) });
   vm.runInContext(chatSource, context);
   for (const input of [{ role: 'user', status: 'complete', id: 'm1' }, { role: 'assistant', status: 'interrupted', id: 'm1' }, { role: 'assistant', status: 'error', id: 'm1' }, { role: 'assistant', status: 'complete' }]) {
     assert.equal(context.messageElement({ content: '내용', ...input }).querySelector('.message-speech'), null);

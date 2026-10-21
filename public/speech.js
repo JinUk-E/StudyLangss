@@ -1,12 +1,73 @@
+const volumeKey = 'starlight.speech-volume';
+const preferences = new WeakMap();
+function volumePreferences(host) {
+  if (preferences.has(host)) return preferences.get(host);
+  const valid = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
+  const parse = raw => raw !== null && raw !== '' && valid(Number(raw)) ? Number(raw) : 1;
+  let volume = 1;
+  try { volume = parse(host.localStorage?.getItem(volumeKey) ?? null); } catch { /* Storage is optional. */ }
+  const listeners = new Set();
+  const preference = {
+    get value() { return volume; }, listeners, context: null,
+    set(value, persist = true) {
+      if (!valid(value)) return false;
+      volume = value;
+      if (persist) try { host.localStorage?.setItem(volumeKey, String(value)); } catch { /* Keep the in-memory setting. */ }
+      for (const update of listeners) update();
+      for (const input of host.document?.querySelectorAll('[data-speech-volume]') || []) {
+        input.value = String(Math.round(value * 100));
+        const label = value === 0 ? '음소거' : `${input.value}%`;
+        input.setAttribute('aria-valuetext', label);
+        input.parentElement.querySelector('output').textContent = label;
+      }
+      return true;
+    },
+    unlock() {
+      // Create/resume during the play-button gesture, before waiting for synthesis.
+      const Context = host.AudioContext || host.webkitAudioContext;
+      if (!Context) return;
+      try {
+        if (!this.context || this.context.state === 'closed') this.context = new Context();
+        if (this.context.state !== 'running') Promise.resolve(this.context.resume()).catch(() => {});
+      } catch { /* Native media volume remains the fallback. */ }
+    }
+  };
+  host.addEventListener?.('storage', event => {
+    if (event.key === volumeKey || event.key === null) preference.set(event.key === null ? 1 : parse(event.newValue), false);
+  });
+  preferences.set(host, preference); return preference;
+}
+
 /** Fetch authenticated Mac-generated audio; only a real ended event completes listening. */
 export function createSpeech(host = globalThis, { service = 'study' } = {}) {
   if (!['study', 'chat'].includes(service)) throw new Error('지원하지 않는 음성 서비스입니다.');
   const base = service === 'chat' ? '/api/chat/tts' : '/api/tts';
   const later = host.setTimeout?.bind(host) || setTimeout;
   const clear = host.clearTimeout?.bind(host) || clearTimeout;
+  const volume = volumePreferences(host);
   let current;
+  function applyVolume(state) {
+    if (!state?.audio) return;
+    state.audio.muted = volume.value === 0;
+    // Web Audio also supports devices that ignore HTMLMediaElement.volume.
+    if (state.gain) {
+      state.gain.gain.setTargetAtTime(volume.value, state.context.currentTime, 0.015);
+    } else state.audio.volume = volume.value;
+  }
+  function volumeControl() {
+    const label = host.document.createElement('label'); label.className = 'speech-volume';
+    const title = host.document.createElement('span'); title.textContent = '음량';
+    const input = host.document.createElement('input'); input.type = 'range'; input.min = '0'; input.max = '100'; input.step = '1';
+    input.value = String(Math.round(volume.value * 100)); input.setAttribute('data-speech-volume', ''); input.setAttribute('aria-label', '음성 음량');
+    const output = host.document.createElement('output'); output.textContent = volume.value === 0 ? '음소거' : `${input.value}%`;
+    input.setAttribute('aria-valuetext', output.textContent);
+    input.oninput = () => volume.set(Number(input.value) / 100);
+    label.append(title, input, output); return label;
+  }
   function release(state) {
     clear(state.timer); clear(state.gap); state.controller?.abort();
+    volume.listeners.delete(state.updateVolume);
+    state.source?.disconnect(); state.gain?.disconnect();
     if (state.audio) {
       state.audio.onended = state.audio.onerror = state.audio.onstalled = state.audio.onwaiting = state.audio.onplaying = null;
       state.audio.pause(); state.audio.removeAttribute?.('src'); state.audio.load?.();
@@ -34,6 +95,7 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
       ? typeof source.messageId === 'string' && source.messageId.length > 0 && ['auto', 'ko', 'ja'].includes(source.language || 'auto') && Object.keys(source).every(key => ['messageId', 'language'].includes(key))
       : (typeof source.entryId === 'string' && source.entryId.length > 0 && ['word', 'sentence', 'meaning'].includes(source.part) && !source.questionId || typeof source.questionId === 'string' && source.questionId.length > 0 && ['passage', 'explanation'].includes(source.part) && !source.entryId) && Object.keys(source).every(key => ['entryId', 'questionId', 'part'].includes(key)));
     if (!validSource || !Number.isFinite(rate) || rate < .5 || rate > 1.5 || !Number.isInteger(repeats) || repeats < 1 || repeats > 3 || typeof voiceURI !== 'string') { cancel(); status('재생할 학습 자료를 확인해 주세요.', 'error'); return Promise.resolve(false); }
+    volume.unlock();
     const body = service === 'chat' ? { messageId: source.messageId, language: source.language || 'auto' } : { ...(source.entryId ? { entryId: source.entryId } : { questionId: source.questionId }), part: source.part, ...(voiceURI ? { voice: voiceURI } : {}) };
     const key = JSON.stringify(body);
     // A blocked iPhone keeps the prepared player. The next click calls play before any await.
@@ -43,6 +105,7 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
     }
     cancel();
     const state = { key, rate, repeats, status, count: 0, controller: new AbortController() };
+    state.updateVolume = () => applyVolume(state); volume.listeners.add(state.updateVolume);
     current = state;
     return new Promise(resolve => {
       state.resolve = resolve;
@@ -57,6 +120,13 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
           if (current !== state) return;
           if (!blob.size || blob.size > 20 * 1024 * 1024) throw new Error('음성 파일 크기를 확인하지 못했습니다.');
           clear(state.timer); state.url = host.URL.createObjectURL(blob); state.audio = new host.Audio(state.url); state.audio.preload = 'auto';
+          if (volume.context) {
+            state.context = volume.context;
+            state.gain = state.context.createGain(); state.gain.gain.value = volume.value;
+            state.source = state.context.createMediaElementSource(state.audio);
+            state.source.connect(state.gain); state.gain.connect(state.context.destination);
+          }
+          applyVolume(state);
           start(state);
         } catch (error) { if (current === state) { state.status(error.name === 'AbortError' ? '음성 요청을 중지했습니다.' : error.message, 'error'); finish(state, false); } }
       })();
@@ -86,13 +156,20 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
       if (current !== state) return;
       if (error?.name === 'NotAllowedError') {
         clear(state.timer); state.blocked = true;
+        audio.pause();
         state.status('음성이 준비되었습니다. 재생 버튼을 한 번 더 눌러 주세요.', 'ready');
         state.resolve?.(false); state.resolve = undefined;
       } else { state.status('음성을 재생하지 못했습니다. 다시 시도해 주세요.', 'error'); finish(state, false); }
     };
-    try { Promise.resolve(audio.play()).catch(rejected); } catch (error) { rejected(error); }
+    try {
+      const playing = audio.play();
+      const resumed = state.context && state.context.state !== 'running' ? state.context.resume() : undefined;
+      Promise.all([playing, resumed]).then(() => {
+        if (state.context && state.context.state !== 'running') rejected({ name: 'NotAllowedError' });
+      }).catch(rejected);
+    } catch (error) { rejected(error); }
   }
-  return { play, cancel, voices };
+  return { play, cancel, voices, volumeControl, getVolume: () => volume.value, setVolume: value => volume.set(value) };
 }
 
 export function createJapaneseSpeech(host = globalThis) { return createSpeech(host); }

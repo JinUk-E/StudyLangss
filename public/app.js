@@ -105,12 +105,12 @@ function renderQuestion() {
     const note = document.createElement('p'); note.className = 'help'; note.setAttribute('role', 'status');
     play.onclick = () => questionSpeech.play({ questionId: q.id, part: 'explanation' }, { status: text => { if (note.isConnected) note.textContent = text; } });
     stop.onclick = () => { questionSpeech.cancel(); note.textContent = '재생을 중지했습니다.'; };
-    controls.append(play, stop); const feedback = $('.feedback'); feedback.querySelector('p').after(controls, note);
+    controls.append(play, stop, questionSpeech.volumeControl()); const feedback = $('.feedback'); feedback.querySelector('p').after(controls, note);
   }
   if ($('#listen')) {
     const stop = document.createElement('button'); stop.type = 'button'; stop.className = 'btn ghost'; stop.textContent = '재생 중지';
     stop.onclick = () => { questionSpeech.cancel(); if ($('#voice-note')) $('#voice-note').textContent = '재생을 중지했습니다.'; };
-    $('#listen').after(stop);
+    $('#listen').after(stop, questionSpeech.volumeControl());
   }
   if ($('#ai-explain')) $('#ai-explain').onclick = explain;
   document.querySelectorAll('[data-rating]').forEach(b => b.onclick = async () => { try { await post(`/api/reviews/${encodeURIComponent(q.id)}`, { rating: b.dataset.rating }); document.querySelectorAll('[data-rating]').forEach(x => x.disabled = true); toast('복습 일정을 조정했어요.'); } catch (error) { toast(error.message); } });

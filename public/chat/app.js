@@ -79,7 +79,7 @@ function addSpeechControls(article, message) {
   play.onclick = () => speech.play({ messageId: message.id, language: language.value }, { status: text => { if (note.isConnected) note.textContent = text; } });
   stop.onclick = () => { speech.cancel(); note.textContent = '재생을 중지했습니다.'; };
   language.onchange = () => { speech.cancel(); note.textContent = '언어를 바꿨습니다. 답변 읽기를 눌러 주세요.'; };
-  buttons.append(play, stop, label); controls.append(buttons, note, help); article.append(controls);
+  buttons.append(play, stop, label, speech.volumeControl()); controls.append(buttons, note, help); article.append(controls);
 }
 function messageElement(message) {
   const article = element('article', undefined, `message ${message.role}`);

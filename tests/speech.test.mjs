@@ -4,9 +4,10 @@ import { createJapaneseSpeech, createSpeech } from '../public/speech.js';
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const source = { entryId: 'ja-n5-1', part: 'sentence' };
-function fixture({ fetcher, blocked = false, service = 'study' } = {}) {
+function fixture({ fetcher, blocked = false, service = 'study', storage = new Map(), rejectStorage = false, webAudio = false } = {}) {
   const requests = [], players = [], revoked = [], timers = new Map(); let timerId = 0, blockNext = blocked;
   const host = {
+    localStorage: { getItem(key) { if (rejectStorage) throw Error('denied'); return storage.get(key) ?? null; }, setItem(key, value) { if (rejectStorage) throw Error('denied'); storage.set(key, value); } },
     fetch: async (url, options) => { requests.push({ url, options }); return fetcher ? fetcher(url, options) : { ok: true, headers: new Headers({ 'content-type': 'audio/wav' }), blob: async () => new Blob(['wav']) }; },
     URL: { createObjectURL: () => `blob:test-${players.length}`, revokeObjectURL: url => revoked.push(url) },
     setTimeout: (callback, duration) => { const id = ++timerId; timers.set(id, { callback, duration }); return id; },
@@ -19,8 +20,51 @@ function fixture({ fetcher, blocked = false, service = 'study' } = {}) {
       load() {}
     },
   };
-  return { speech: service === 'study' ? createJapaneseSpeech(host) : createSpeech(host, { service }), requests, players, revoked, timers, runTimer(duration) { const [id, timer] = [...timers].find(([, value]) => value.duration === duration) || []; assert.ok(timer, `Missing ${duration}ms timer`); timers.delete(id); timer.callback(); } };
+  const contexts = [], gains = [], sources = [];
+  if (webAudio) host.AudioContext = class {
+    state = 'suspended'; currentTime = 0; destination = {};
+    constructor() { contexts.push(this); }
+    resume() { this.state = 'running'; return Promise.resolve(); }
+    createGain() { const node = { gain: { value: 1, setTargetAtTime(value) { this.value = value; } }, connect() {}, disconnect() { this.disconnected = true; } }; gains.push(node); return node; }
+    createMediaElementSource() { const node = { connect() {}, disconnect() { this.disconnected = true; } }; sources.push(node); return node; }
+  };
+  return { speech: service === 'study' ? createJapaneseSpeech(host) : createSpeech(host, { service }), host, storage, contexts, gains, sources, requests, players, revoked, timers, runTimer(duration) { const [id, timer] = [...timers].find(([, value]) => value.duration === duration) || []; assert.ok(timer, `Missing ${duration}ms timer`); timers.delete(id); timer.callback(); } };
 }
+
+test('volume changes live without another request and persists across study/chat visits', async () => {
+  const storage = new Map(), f = fixture({ storage });
+  assert.equal(f.speech.getVolume(), 1); f.speech.setVolume(.7);
+  const pending = f.speech.play(source); await flush();
+  assert.equal(f.players[0].volume, .7);
+  f.speech.setVolume(.3); assert.equal(f.players[0].volume, .3); assert.equal(f.requests.length, 1);
+  f.speech.setVolume(0); assert.equal(f.players[0].muted, true);
+  const chat = fixture({ storage, service: 'chat' }); assert.equal(chat.speech.getVolume(), 0);
+  f.speech.setVolume(1); assert.equal(f.players[0].muted, false);
+  f.players[0].onended(); assert.equal(await pending, true);
+});
+
+test('pending synthesis, repeated playback and blocked storage use the current volume safely', async () => {
+  for (const stored of ['NaN', '-1', '2', '', 'no']) assert.equal(fixture({ storage: new Map([['starlight.speech-volume', stored]]) }).speech.getVolume(), 1);
+  const f = fixture({ rejectStorage: true });
+  const pending = f.speech.play(source, { repeats: 2 }); f.speech.setVolume(.25); await flush();
+  assert.equal(f.players[0].volume, .25);
+  f.players[0].onended(); f.speech.setVolume(.6); f.runTimer(350); assert.equal(f.players[0].volume, .6);
+  for (const value of [NaN, Infinity, -1, 2, '0.5']) assert.equal(f.speech.setVolume(value), false);
+  assert.equal(f.speech.getVolume(), .6); f.players[0].onended(); assert.equal(await pending, true);
+});
+
+test('Web Audio gain controls live volume, shares one context and disconnects stopped players', async () => {
+  const f = fixture({ webAudio: true });
+  const pending = f.speech.play(source); assert.equal(f.contexts[0].state, 'running'); await flush();
+  f.speech.setVolume(.4); assert.equal(f.gains[0].gain.value, .4);
+  f.speech.setVolume(0); assert.equal(f.players[0].muted, true); assert.equal(f.gains[0].gain.value, 0);
+  f.speech.cancel(); assert.equal(await pending, false); assert.ok(f.sources[0].disconnected); assert.ok(f.gains[0].disconnected);
+  const second = createSpeech(f.host, { service: 'chat' }); second.setVolume(.8);
+  const playing = second.play({ messageId: 'm1' }); await flush();
+  assert.equal(f.contexts.length, 1); assert.equal(f.gains[1].gain.value, .8);
+  assert.equal(f.gains[0].gain.value, 0); // Released players no longer subscribe.
+  f.players[1].onended(); assert.equal(await playing, true);
+});
 
 test('Mac speech sends only source IDs with same-origin auth, applies rate and waits for every ended event', async () => {
   const f = fixture(), statuses = [];
