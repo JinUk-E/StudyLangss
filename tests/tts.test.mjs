@@ -109,12 +109,25 @@ test('one subscriber cancellation preserves shared synthesis; last cancellation 
 
 test('TTS times out a hung command, cleans temporary files, and permits retry', async t => {
   let hang = true;
+  const started = Promise.withResolvers();
+  let commandSignal;
   const { tts, directory } = await setup(t, { timeoutMs: 30 }, async (command, args, { signal }) => {
-    if (command === '/usr/bin/say' && hang) return new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true }));
+    signal.throwIfAborted();
+    if (command === '/usr/bin/say' && hang) return new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      commandSignal = signal; started.resolve();
+    });
     await writeFile(command === '/usr/bin/say' ? args[args.indexOf('-o') + 1] : args.at(-1), command === '/usr/bin/say' ? 'AIFF' : wav());
     return { stdout: '' };
   });
-  await assert.rejects(tts.synthesize('時間切れ'), error => error.code === 'TTS_TIMEOUT' && error.status === 504);
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const rejected = assert.rejects(tts.synthesize('時間切れ'), error => error.code === 'TTS_TIMEOUT' && error.status === 504);
+  await started.promise;
+  t.mock.timers.tick(29);
+  assert.equal(commandSignal.aborted, false);
+  t.mock.timers.tick(1);
+  await rejected;
+  assert.equal(commandSignal.aborted, true);
   assert.deepEqual(await readdir(directory), []); hang = false;
   assert.equal(validWav((await tts.synthesize('時間切れ')).buffer), true);
 });
@@ -134,6 +147,8 @@ test('TTS rejects corrupt output and corrupt cached files are regenerated', asyn
 
 test('request deadline includes queue wait and aborts generation instead of overrunning the browser wait', async t => {
   const entered = [];
+  const firstStarted = Promise.withResolvers(), secondStarted = Promise.withResolvers();
+  let secondSignal;
   const backend = {
     identity: 'test-deadline',
     voices: async () => ({ available: true, voices: [{ id: 'ja', language: 'ja-JP' }] }),
@@ -142,17 +157,29 @@ test('request deadline includes queue wait and aborts generation instead of over
       await new Promise((done, fail) => {
         const timer = setTimeout(done, 100);
         signal.addEventListener('abort', () => { clearTimeout(timer); fail(signal.reason); }, { once: true });
+        if (entered.length === 1) firstStarted.resolve();
+        else { secondSignal = signal; secondStarted.resolve(); }
       });
       await writeFile(destination, wav());
     }
   };
   const { tts } = await setup(t, { backend, timeoutMs: 1000, requestTimeoutMs: 160 });
+  // LaunchAgents can be scheduled slowly. Advance the clock explicitly while
+  // still awaiting real filesystem work; wall-clock speed is not the contract.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
   const first = tts.synthesize('最初');
-  await waitFor(() => entered.length === 1);
+  await firstStarted.promise;
   const queued = tts.synthesize('次の音声');
   const rejected = assert.rejects(queued, error => error.status === 504 && error.code === 'TTS_TIMEOUT');
+  await new Promise(resolve => setImmediate(resolve));
+  t.mock.timers.tick(100);
   assert.equal(validWav((await first).buffer), true);
+  await secondStarted.promise;
+  t.mock.timers.tick(59);
+  assert.equal(secondSignal.aborted, false);
+  t.mock.timers.tick(1);
   await rejected;
+  assert.equal(secondSignal.aborted, true);
   assert.deepEqual(entered, ['最初', '次の音声']);
 });
 
