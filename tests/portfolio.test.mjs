@@ -11,12 +11,15 @@ import { createPortfolioStore, defaultProfile, profileInput, projectInput, resum
 import { starterProfile, starterProjects, starterResume } from '../content/portfolio-defaults.mjs';
 import { careerProfile, careerResume, careerProjects, careerAssets } from '../content/career-content.mjs';
 import previousCareerResume from '../content/career-resume-v1.json' with { type: 'json' };
+import previousProjects from '../content/portfolio-projects-v1.json' with { type: 'json' };
+import { refreshedAssets, projectRefresh } from '../content/portfolio-latest.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=', 'base64');
 const fixture = () => ({ title: '작업 <script>alert(1)</script>', category: '웹', summary: '소개', description: '상세 설명', role: '개발', year: '2026', tags: ['Node'], link: 'https://example.com', repository: '', cover: '', gallery: [], published: false, featured: false, order: 0 });
-const call = (path, options = {}, auth = true) => fetch(base + path, { ...options, headers: { ...(auth ? { Authorization: authorization } : {}), 'Content-Type': 'application/json', ...options.headers } });
+// Synchronous migration checks can outlast an idle keep-alive socket between HTTP tests.
+const call = (path, options = {}, auth = true) => fetch(base + path, { ...options, headers: { ...(auth ? { Authorization: authorization } : {}), 'Content-Type': 'application/json', Connection: 'close', ...options.headers } });
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'starlight-portfolio-test-'));
   await writeFile(join(directory, 'auth.json'), JSON.stringify(await createCredentials('portfolio-test', 'portfolio-test-only-2026')), { mode: 0o600 });
@@ -107,8 +110,9 @@ test('starter and career content is seeded once and user edits and deletions sur
   assert.deepEqual(store.profile(), profileInput(careerProfile));
   assert.deepEqual(store.resume(), resumeInput(careerResume));
   assert.equal(store.resume().published, true);
-  assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, 5);
-  for (const asset of careerAssets) { assert.ok(store.image(asset.path).content.length > 0); assert.ok(store.publicImage(asset.path)); }
+  assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, careerAssets.length);
+  for (const asset of careerAssets) assert.ok(store.image(asset.path).content.length > 0);
+  for (const project of store.projects()) for (const path of [project.cover, ...project.gallery].filter(Boolean)) assert.ok(store.publicImage(path));
   const id = careerProjects[0].id, editedId = careerProjects[1].id;
   const custom = { ...store.profile(), tagline: '직접 작성한 문구', intro: '사용자가 수정한 소개' };
   store.saveProfile(custom); store.saveProject({ ...store.project(editedId), title: '직접 수정한 프로젝트' }, editedId);
@@ -205,10 +209,13 @@ test('imported screenshots follow project visibility and the career resume templ
   assert.deepEqual((await template.json()).resume, careerResume);
   const { projects } = await (await call('/api/portfolio/manage')).json();
   const project = projects.find(value => value.id === careerProjects[1].id);
-  assert.ok(project.cover); assert.equal((await call(project.cover, {}, false)).status, 200);
+  assert.ok(project.cover);
+  const publicImage = await call(project.cover, {}, false); assert.equal(publicImage.status, 200);
+  assert.ok((await publicImage.arrayBuffer()).byteLength > 0);
   assert.equal((await call(`/api/portfolio/projects/${project.id}`, { method: 'PUT', body: JSON.stringify({ ...project, published: false }) })).status, 200);
   assert.equal((await call(project.cover, {}, false)).status, 401);
-  assert.equal((await call(project.cover)).status, 200);
+  const privateImage = await call(project.cover); assert.equal(privateImage.status, 200);
+  assert.ok((await privateImage.arrayBuffer()).byteLength > 0);
   await call(`/api/portfolio/projects/${project.id}`, { method: 'PUT', body: JSON.stringify(project) });
 });
 
@@ -247,6 +254,54 @@ test('public rollout rolls back resume and marker if a project cannot be publish
   assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('public-career-content-v1'), undefined);
   db.exec('DROP TRIGGER fail_public_project'); db.close();
   store = createPortfolioStore(isolated); assert.equal(store.resume().published, true); assert.equal(store.project(draft.id).published, true); store.db.close();
+});
+
+function beforeScreenRefresh(store) {
+  for (const { id, ...project } of previousProjects) store.saveProject(project, id);
+  for (const asset of refreshedAssets) store.db.prepare('DELETE FROM images WHERE path=?').run(asset.path);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('portfolio-screens-20261023-v1');
+}
+
+test('latest screens refresh previous defaults once while preserving edits, private flags, custom images and deleted projects', () => {
+  const isolated = join(directory, 'latest-screens'); let store = createPortfolioStore(isolated);
+  beforeScreenRefresh(store);
+  const ids = previousProjects.map(project => project.id), editedId = ids[1], deletedId = ids[3];
+  const { path } = store.addImage(png);
+  store.saveProject({ ...store.project(editedId), summary: '직접 다듬은 소개', cover: path, gallery: [path], published: false, featured: false, order: 800 }, editedId);
+  store.remove(deletedId);
+  const extra = store.project(store.saveProject(fixture()).id);
+  const customResume = store.saveResume({ ...store.resume(), summary: '직접 쓴 이력서', published: false });
+  const profile = store.profile();
+  store.db.close(); store = createPortfolioStore(isolated);
+  for (const id of ids.filter(id => id !== deletedId && id !== editedId)) {
+    const current = store.project(id);
+    for (const [field, value] of Object.entries(projectRefresh[id])) assert.deepEqual(current[field], value, `${id}/${field}`);
+    assert.equal(store.publicImage(current.cover), true);
+  }
+  const edited = store.project(editedId);
+  assert.equal(edited.summary, '직접 다듬은 소개'); assert.equal(edited.cover, path); assert.deepEqual(edited.gallery, [path]);
+  assert.equal(edited.published, false); assert.equal(edited.featured, false); assert.equal(edited.order, 800);
+  assert.equal(edited.description, projectRefresh[editedId].description);
+  assert.equal(store.project(deletedId), undefined); assert.deepEqual(store.project(extra.id), extra);
+  assert.deepEqual(store.resume(), customResume); assert.deepEqual(store.profile(), profile);
+  store.saveProject({ ...edited, description: '갱신 후 편집' }, editedId);
+  const future = store.project(editedId), projects = store.projects();
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.project(editedId), future); assert.deepEqual(store.projects(), projects); store.db.close();
+});
+
+test('screen refresh rolls back image imports, earlier project updates and marker together on failure', () => {
+  const isolated = join(directory, 'failed-screen-refresh'); let store = createPortfolioStore(isolated);
+  beforeScreenRefresh(store);
+  const previous = store.projects(), imageCount = store.db.prepare('SELECT COUNT(*) count FROM images').get().count;
+  store.db.exec(`CREATE TRIGGER fail_screen_update BEFORE UPDATE ON projects WHEN NEW.id='${previousProjects[1].id}' BEGIN SELECT RAISE(ABORT, 'injected screen refresh failure'); END`);
+  store.db.close(); assert.throws(() => createPortfolioStore(isolated), /injected screen refresh failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM images').get().count, imageCount);
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('portfolio-screens-20261023-v1'), undefined);
+  for (const project of previous) assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(project.id).json), projectInput(project, () => true));
+  db.exec('DROP TRIGGER fail_screen_update'); db.close();
+  store = createPortfolioStore(isolated); assert.ok(store.projects().every(project => project.cover)); store.db.close();
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {

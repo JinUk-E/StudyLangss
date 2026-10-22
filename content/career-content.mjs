@@ -1,5 +1,6 @@
 // Public website copy adapted from the owner's portfolio and resume.
 // Contact details and application-specific material are intentionally excluded.
+import { refreshedAssets, refreshProject } from './portfolio-latest.mjs';
 export const careerProfile = {
   name: '정진욱',
   role: 'Unity 클라이언트 개발자',
@@ -45,7 +46,8 @@ export const careerAssets = [
   { file: 'f.png', path: '/media/8d47aa00-3000-4000-8000-000000000002.png' },
   { file: 'run.png', path: '/media/8d47aa00-3000-4000-8000-000000000003.png' },
   { file: 'lobby.png', path: '/media/8d47aa00-3000-4000-8000-000000000004.png' },
-  { file: 'deduction.png', path: '/media/8d47aa00-3000-4000-8000-000000000005.png' }
+  { file: 'deduction.png', path: '/media/8d47aa00-3000-4000-8000-000000000005.png' },
+  ...refreshedAssets
 ];
 const asset = file => careerAssets.find(image => image.file === file).path;
 const projectBase = { repository: '', link: '', cover: '', gallery: [], published: true, featured: true };
@@ -87,4 +89,4 @@ export const careerProjects = [
     tags: ['Unity', 'C#', 'UI Toolkit', 'JSON', '규칙 모델', 'AI 교차 검토', '자동 진행'],
     cover: asset('m.png'), gallery: [asset('deduction.png')], order: 3
   }
-];
+].map(refreshProject);
