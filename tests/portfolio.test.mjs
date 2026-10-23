@@ -13,6 +13,7 @@ import { careerProfile, careerResume, careerProjects, careerAssets } from '../co
 import previousCareerResume from '../content/career-resume-v1.json' with { type: 'json' };
 import previousProjects from '../content/portfolio-projects-v1.json' with { type: 'json' };
 import { refreshedAssets, projectRefresh } from '../content/portfolio-latest.mjs';
+import { baseballProject, baseballAsset } from '../content/baseball-project.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -83,6 +84,17 @@ test('profile editing publishes only validated fields; portfolio data survives r
   assert.equal(store.project(project.id).title, fixture().title); store.db.close();
 });
 
+test('baseball is publicly listed in portfolio and resume with its detail route, screenshot and repository', async () => {
+  const portfolio = await (await call('/api/portfolio/public', {}, false)).json();
+  assert.ok(portfolio.projects.some(project => project.id === baseballProject.id && project.repository === baseballProject.repository));
+  const resume = await (await call('/api/portfolio/resume', {}, false)).json();
+  assert.ok(resume.projects.some(project => project.id === baseballProject.id));
+  assert.equal((await call(`/projects/${baseballProject.id}`, {}, false)).status, 200);
+  const image = await call(baseballAsset.path, {}, false);
+  assert.equal(image.status, 200); assert.equal(image.headers.get('content-type'), 'image/png');
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()).subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+});
+
 test('resume defaults public but deliberate private settings remain enforced and persist after reopening', async () => {
   assert.equal((await call('/resume/', {}, false)).status, 200);
   assert.equal((await call('/api/portfolio/resume', {}, false)).status, 200);
@@ -106,7 +118,7 @@ test('resume defaults public but deliberate private settings remain enforced and
 
 test('starter and career content is seeded once and user edits and deletions survive restart', () => {
   const isolated = join(directory, 'content-migration'); let store = createPortfolioStore(isolated);
-  assert.equal(store.projects().length, 7); assert.ok(store.profile().intro.length > 20);
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length); assert.ok(store.profile().intro.length > 20);
   assert.deepEqual(store.profile(), profileInput(careerProfile));
   assert.deepEqual(store.resume(), resumeInput(careerResume));
   assert.equal(store.resume().published, true);
@@ -118,7 +130,7 @@ test('starter and career content is seeded once and user edits and deletions sur
   store.saveProfile(custom); store.saveProject({ ...store.project(editedId), title: '직접 수정한 프로젝트' }, editedId);
   store.remove(id); store.db.close(); store = createPortfolioStore(isolated);
   assert.equal(store.profile().tagline, custom.tagline); assert.equal(store.profile().intro, custom.intro);
-  assert.equal(store.projects().length, 6); assert.equal(store.project(id), undefined);
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length - 1); assert.equal(store.project(id), undefined);
   assert.equal(store.project(editedId).title, '직접 수정한 프로젝트'); store.db.close();
 });
 
@@ -155,7 +167,7 @@ test('career import preserves custom profile fields, custom resume, and projects
   assert.deepEqual(store.resume(), customResume);
   assert.equal(store.project(customProject.id).title, customProject.title);
   assert.equal(store.project(otherProject.id).title, otherProject.title);
-  assert.equal(store.projects().length, 8); store.db.close();
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 1); store.db.close();
 });
 
 test('replacing untouched starter resume text preserves its existing public visibility', () => {
@@ -200,7 +212,7 @@ test('career migration rolls back profile, resume, images, projects, and marker 
   assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, 3);
   assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('career-import-v1'), undefined);
   db.exec('DROP TRIGGER fail_career_project'); db.close();
-  store = createPortfolioStore(isolated); assert.equal(store.projects().length, 7); store.db.close();
+  store = createPortfolioStore(isolated); assert.equal(store.projects().length, starterProjects.length + careerProjects.length); store.db.close();
 });
 
 test('imported screenshots follow project visibility and the career resume template requires login', async () => {
@@ -302,6 +314,58 @@ test('screen refresh rolls back image imports, earlier project updates and marke
   for (const project of previous) assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(project.id).json), projectInput(project, () => true));
   db.exec('DROP TRIGGER fail_screen_update'); db.close();
   store = createPortfolioStore(isolated); assert.ok(store.projects().every(project => project.cover)); store.db.close();
+});
+
+const previousCareerIntro = 'Unity와 C#으로 게임을 만들고, 출시 이후에도 개발을 이어 갈 수 있는 기반을 다듬습니다. SDK 연동, 모바일 출시, 빌드 자동화와 런타임 안정성을 네 개의 프로젝트에 담았습니다.';
+function beforeBaseballAddition(store) {
+  store.remove(baseballProject.id);
+  store.db.prepare('DELETE FROM images WHERE path=?').run(baseballAsset.path);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('baseball-life-20261024-v1');
+}
+
+test('baseball addition upgrades an existing installation once without changing other projects or resurrecting a later deletion', () => {
+  const isolated = join(directory, 'baseball-addition'); let store = createPortfolioStore(isolated);
+  beforeBaseballAddition(store);
+  store.saveProfile({ ...store.profile(), intro: previousCareerIntro });
+  const projects = store.projects(), resume = store.resume();
+  store.db.close(); store = createPortfolioStore(isolated);
+  for (const project of projects) assert.deepEqual(store.project(project.id), project);
+  assert.deepEqual(projectInput(store.project(baseballProject.id), () => true), projectInput(baseballProject, () => true));
+  assert.ok(store.publicImage(baseballProject.cover)); assert.ok(store.image(baseballProject.cover).content.length > 0);
+  assert.equal(store.profile().intro, careerProfile.intro); assert.deepEqual(store.resume(), resume);
+  store.saveProject({ ...store.project(baseballProject.id), title: '직접 수정한 야구게임', published: false, order: 900 }, baseballProject.id);
+  const edited = store.project(baseballProject.id);
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.project(baseballProject.id), edited); assert.equal(store.publicImage(baseballProject.cover), false);
+  store.remove(baseballProject.id); store.db.close(); store = createPortfolioStore(isolated);
+  assert.equal(store.project(baseballProject.id), undefined); assert.equal(store.projects().length, projects.length); store.db.close();
+});
+
+test('baseball addition preserves an existing custom entry and manually edited home introduction', () => {
+  const isolated = join(directory, 'baseball-custom'); let store = createPortfolioStore(isolated);
+  beforeBaseballAddition(store);
+  store.saveProject({ ...baseballProject, summary: '직접 쓴 설명', cover: '', published: false, featured: false }, baseballProject.id);
+  store.saveProfile({ ...store.profile(), intro: '직접 쓴 홈 소개' });
+  const project = store.project(baseballProject.id), profile = store.profile();
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.deepEqual(store.project(baseballProject.id), project); assert.deepEqual(store.profile(), profile); store.db.close();
+});
+
+test('baseball addition rolls back image, project and profile if its migration marker cannot be saved', () => {
+  const isolated = join(directory, 'baseball-rollback'); let store = createPortfolioStore(isolated);
+  beforeBaseballAddition(store);
+  store.saveProfile({ ...store.profile(), intro: previousCareerIntro });
+  const profile = store.profile(), projects = store.projects();
+  store.db.exec("CREATE TRIGGER fail_baseball_marker BEFORE INSERT ON migrations WHEN NEW.id='baseball-life-20261024-v1' BEGIN SELECT RAISE(ABORT, 'injected baseball failure'); END");
+  store.db.close(); assert.throws(() => createPortfolioStore(isolated), /injected baseball failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('baseball-life-20261024-v1'), undefined);
+  assert.equal(db.prepare('SELECT 1 FROM images WHERE path=?').get(baseballAsset.path), undefined);
+  assert.equal(db.prepare('SELECT 1 FROM projects WHERE id=?').get(baseballProject.id), undefined);
+  assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM profile WHERE id=1').get().json), profile);
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, projects.length);
+  db.exec('DROP TRIGGER fail_baseball_marker'); db.close();
+  store = createPortfolioStore(isolated); assert.ok(store.project(baseballProject.id)); store.db.close();
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {

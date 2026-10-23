@@ -1,3 +1,4 @@
+import { baseballProject, baseballAsset } from './baseball-project.mjs';
 // Public website copy adapted from the owner's portfolio and resume.
 // Contact details and application-specific material are intentionally excluded.
 import { refreshedAssets, refreshProject } from './portfolio-latest.mjs';
@@ -5,7 +6,7 @@ export const careerProfile = {
   name: '정진욱',
   role: 'Unity 클라이언트 개발자',
   tagline: '게임을 만드는 코드에서\n개발을 지탱하는 도구까지.',
-  intro: 'Unity와 C#으로 게임을 만들고, 출시 이후에도 개발을 이어 갈 수 있는 기반을 다듬습니다. SDK 연동, 모바일 출시, 빌드 자동화와 런타임 안정성을 네 개의 프로젝트에 담았습니다.',
+  intro: 'Unity와 C#으로 게임을 만들고, JavaScript로 야구 선수 커리어 게임을 제작합니다. 게임 기능, SDK 연동, 모바일 출시와 빌드 자동화 경험을 프로젝트별로 소개합니다.',
   bio: 'Unity 클라이언트 개발자 정진욱입니다. 모바일 게임의 기획·개발·출시 경험을 바탕으로, 게임 기능과 이를 지탱하는 개발 도구를 함께 만듭니다.\n\n페달의민족(Tour de Indoor)에서는 클라이언트 개발을 전담하고 Mac Studio의 Jenkins 기반 Android/iOS 자동 빌드를 담당했습니다. 아트와 서버는 팀원이 담당했습니다. 로그인·광고·데이터 SDK의 실패 처리, 리소스 수명과 빌드 입력값처럼 문제가 발생하기 쉬운 경계를 정리하는 데 관심이 있습니다.\n\n개인 프로토타입에서는 패키지 호환성, 서버 권한과 클라이언트 예측, 화면과 게임 규칙의 분리를 다뤘습니다. AI 도구는 코드 탐색·구현·검토에 활용하고, 변경된 코드와 실제 실행 결과를 확인하며 적용합니다.',
   email: '',
   githubUrl: 'https://github.com/JinUk-E',
@@ -47,7 +48,7 @@ export const careerAssets = [
   { file: 'run.png', path: '/media/8d47aa00-3000-4000-8000-000000000003.png' },
   { file: 'lobby.png', path: '/media/8d47aa00-3000-4000-8000-000000000004.png' },
   { file: 'deduction.png', path: '/media/8d47aa00-3000-4000-8000-000000000005.png' },
-  ...refreshedAssets
+  ...refreshedAssets, baseballAsset
 ];
 const asset = file => careerAssets.find(image => image.file === file).path;
 const projectBase = { repository: '', link: '', cover: '', gallery: [], published: true, featured: true };
@@ -88,5 +89,6 @@ export const careerProjects = [
     description: '사진 조사와 추리 보드를 연결하는 Windows 실행 프로토타입입니다. GameState가 단서·탐문 노드·추리 보드·렌즈 모델과 화면 상태를 소유하고, 화면은 모델 메서드를 호출합니다. 화면 전환 가능 여부는 CanEnter에서 판단합니다.\n\n사건 문안과 규칙은 CaseData 및 JSON으로 관리하고, 알려지지 않은 핫스팟 ID와 중복·누락을 생성 시 검사합니다. 저장된 2026-10-17 EditMode 검증 결과는 225/225 통과입니다.\n\nClaude의 설계·검토와 Codex의 구현을 나눠 활용했습니다. 제안된 수정은 실제 게임 규칙과 비교하고 적용 여부와 이유를 기록했습니다. 모달 종료 뒤 렌즈가 키 입력을 받지 못하는 문제를 Root.Focus()로 수정하고, 키 유지와 모달 진입 시점의 입력도 다시 확인했습니다.\n\n자동 진행 도구는 단서를 직접 추가하지 않고 버튼과 사진 입력 경로를 호출합니다. 1280×720과 1920×1080에서 의뢰부터 결말까지 진행하고 화면을 캡처했습니다. 자동 검사는 입력·상태·표시를 확인하며 이야기 이해도와 플레이 감각은 사람의 평가로 확인합니다. Steam은 목표 플랫폼이며 SDK 연동 또는 스토어 출시 실적은 포함하지 않습니다.',
     tags: ['Unity', 'C#', 'UI Toolkit', 'JSON', '규칙 모델', 'AI 교차 검토', '자동 진행'],
     cover: asset('m.png'), gallery: [asset('deduction.png')], order: 3
-  }
+  },
+  baseballProject
 ].map(refreshProject);
