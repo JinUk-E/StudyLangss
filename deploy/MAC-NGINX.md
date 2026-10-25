@@ -131,10 +131,32 @@ Nginx의 proxy_pass를 `http://192.168.0.50:3210`으로 바꾸고 Mac 방화벽�
 - [Let's Encrypt 인증 방식](https://letsencrypt.org/docs/challenge-types/)
 - [Node.js scrypt](https://nodejs.org/docs/latest-v24.x/api/crypto.html#cryptoscryptpassword-salt-keylen-options-callback)
 
-앱의 인증·우회 차단·학습 기능은 자동 테스트로 검사합니다. 이 작업 환경은 Windows이므로 Nginx 설정의 실제 `nginx -t`, macOS 권한·서비스, 도메인 라우팅과 실 인증서 발급은 사용자의 Mac에서 확인해야 합니다.
+앱의 인증·우회 차단·학습 기능은 Windows와 GitHub의 Apple Silicon Mac에서 자동 테스트로 검사합니다. 오류 매핑 예제는 공식 Windows Nginx 1.30.6의 격리된 루프백 환경에서도 문법과 502/429·HTML/JSON·401 인증 헤더 전달을 확인했습니다. 운영 Mac의 실제 설정·파일 권한·도메인 라우팅과 인증서는 해당 Mac에서 확인해야 합니다.
 
 ## 이미지가 일부만 전송되는 경우
+
 
 HTTP 200이어도 이미지가 깨지고 `curl`에서 `transfer closed with outstanding read data remaining`이 발생하면 nginx 오류 로그를 확인합니다. `proxy_temp` 파일 쓰기에 `Permission denied`가 있으면 앱 응답이 정상이어도 큰 이미지 전송이 중단될 수 있습니다.
 
 별빛공방 설정 예제는 해당 `server` 안에 `proxy_max_temp_file_size 0;`을 지정해 프록시 응답을 디스크 임시 파일로 내보내지 않습니다. 공유 nginx 디렉터리의 소유권을 바꾸지 않고 도메인 단위로 적용합니다. [nginx 공식 문서](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_max_temp_file_size). 적용 후 `nginx -t`와 reload를 수행하고, HTTPS 다운로드 파일이 원본과 같은지 및 브라우저에서 실제 이미지 해독에 성공하는지 확인합니다. 이 설정은 요청 본문 업로드용 임시 디렉터리 설정과는 별개입니다.
+
+## 오류 화면 적용
+
+앱 코드를 업데이트하고 포트폴리오·학습·AI 대화 세 서버를 재시작하면, 브라우저의 로그인 실패와 권한·페이지·서버 오류에 공통 안내 화면을 표시합니다. 기존 Basic 로그인 창을 취소했을 때도 원시 JSON 대신 안내 화면이 표시됩니다. 원래 401/403/404/429/5xx 상태를 유지하며 정상 페이지로 리다이렉트하지 않습니다.
+
+Nginx가 직접 만드는 연결 실패·요청 제한 응답까지 적용하려면:
+
+1. 현재 운영 Nginx 설정을 백업하고 `deploy/nginx/starlightforge.conf.example`의 새 `map`·`error_page`·두 `location = /_errors/...` 블록과 `server_tokens off`를 반영합니다. `map`과 `map_hash_bucket_size 64`는 `http` 문맥에 한 번만 둡니다. 기존 인증서·도메인·프록시 경로는 실제 운영 값을 사용합니다.
+2. 두 `alias`의 `/ABSOLUTE/PATH/TO/StudyLangss`를 Mac의 실제 프로젝트 경로로 바꿉니다. Nginx 실행 계정이 `public/errors/unavailable.html`과 `unavailable.json`을 읽을 수 있어야 합니다. 이 파일은 외부 자산·스크립트 없이 표시됩니다.
+3. `proxy_intercept_errors off`를 유지합니다. 앱의 Basic 인증 헤더와 API 오류 JSON을 Nginx가 다른 화면으로 덮어쓰지 않습니다. Nginx 자체 오류만 브라우저에는 HTML, API 요청에는 고정 JSON으로 매핑합니다.
+4. 아래 명령으로 실제 운영 설정을 검사한 뒤 다시 불러옵니다.
+
+```sh
+nginx -t
+# 위 검사가 성공한 경우에만 실행합니다.
+nginx -s reload
+```
+
+설정 파일을 수정하지 않으면 앱의 오류 화면은 적용되지만 Nginx 자체의 502/429 화면은 이전 상태입니다. `server_tokens off`는 Nginx 버전 표시를 줄이며 오류 화면 자체가 인증·권한 검사를 대신하지 않습니다.
+
+공식 동작: [error_page](https://nginx.org/en/docs/http/ngx_http_core_module.html#error_page), [proxy_intercept_errors](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_intercept_errors).

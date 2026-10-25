@@ -1,4 +1,5 @@
 # Starlight Forge: DNS-01 certificates; port 80 remains available for existing Certbot.
+map_hash_bucket_size 64;
 # Public UI files must not consume the API/login/document request budget.
 # Keep a separate, bounded budget; do not exempt arbitrary *.js API paths.
 map $uri $starlight_dynamic_key {
@@ -17,9 +18,18 @@ map $starlight_dynamic_key $starlight_asset_key {
 limit_req_zone $starlight_dynamic_key zone=starlight_dynamic:10m rate=5r/s;
 limit_req_zone $starlight_asset_key zone=starlight_assets:10m rate=30r/s;
 
+# Only Nginx-generated errors use these local files. App/API errors pass through.
+map $http_accept $starlight_error_page {
+    default /_errors/unavailable.json;
+    ~*text/html /_errors/unavailable.html;
+}
+
 server {
     listen 443 ssl;
     server_name starlightforge.duckdns.org;
+    server_tokens off;
+    proxy_intercept_errors off;
+    error_page 400 401 403 404 405 408 413 414 429 500 502 503 504 $starlight_error_page;
 
     ssl_certificate /ABSOLUTE/PATH/TO/StudyLangss/data/letsencrypt/config/live/starlightforge.duckdns.org/fullchain.pem;
     ssl_certificate_key /ABSOLUTE/PATH/TO/StudyLangss/data/letsencrypt/config/live/starlightforge.duckdns.org/privkey.pem;
@@ -34,6 +44,30 @@ server {
     limit_req_status 429;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy same-origin always;
+
+    # Read directly from disk even if every Node process is unavailable.
+    # Replace /ABSOLUTE/PATH/TO/StudyLangss with the actual Mac checkout.
+    location = /_errors/unavailable.html {
+        internal;
+        alias /ABSOLUTE/PATH/TO/StudyLangss/public/errors/unavailable.html;
+        types { }
+        default_type text/html;
+        charset utf-8;
+        add_header Cache-Control no-store always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy no-referrer always;
+        add_header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" always;
+    }
+    location = /_errors/unavailable.json {
+        internal;
+        alias /ABSOLUTE/PATH/TO/StudyLangss/public/errors/unavailable.json;
+        types { }
+        default_type application/json;
+        charset utf-8;
+        add_header Cache-Control no-store always;
+        add_header X-Content-Type-Options nosniff always;
+    }
 
     # Personal chat: independent API and SQLite store; authentication in chat-server.mjs.
     location ~ ^/(chat(?:/|$)|api/chat/) {

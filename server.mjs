@@ -15,6 +15,7 @@ import { servePwaAsset } from './lib/pwa-assets.mjs';
 import { requireAccess } from './lib/access.mjs';
 import { createUserStores } from './lib/user-stores.mjs';
 import { createRuntimeHealth } from './lib/runtime-health.mjs';
+import { sendError } from './lib/error-response.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'study');
@@ -129,7 +130,7 @@ async function api(req, res, url, store) {
     if (!req.user.isAdmin && input.settings && typeof input.settings === 'object' && !Array.isArray(input.settings)) input.settings = { ...input.settings, ollamaUrl: stores.owner.getSettings().ollamaUrl };
     return json(res, 200, store.restore(input));
   }
-  return json(res, 404, { error: '요청한 API를 찾을 수 없습니다.' });
+  return sendError(req, res, 404, '요청한 API를 찾을 수 없습니다.');
 }
 
 const server = createServer(async (req, res) => {
@@ -156,7 +157,7 @@ const server = createServer(async (req, res) => {
   } catch (error) {
     const status = error.status || (error.code === 'ENOENT' ? 404 : ['TimeoutError', 'AbortError'].includes(error.name) ? 504 : error instanceof URIError ? 400 : 500);
     if (status >= 500) console.error(JSON.stringify({ event: 'request_error', path: req.url, message: error.message }));
-    if (!res.headersSent) json(res, status, { error: error.status ? error.message : status === 404 ? '파일을 찾을 수 없습니다.' : status === 504 ? 'AI 응답 시간이 초과되었습니다. 다시 시도해 주세요.' : '요청을 처리하지 못했습니다. 서버 상태를 확인해 주세요.' }); else res.end();
+    sendError(req, res, status, error.status ? error.message : undefined);
   }
 });
 server.requestTimeout = 120000;

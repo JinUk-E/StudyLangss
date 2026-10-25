@@ -12,6 +12,7 @@ import { pushPaths } from './lib/push-paths.mjs';
 import { requireAccess } from './lib/access.mjs';
 import { createSiteUpdater } from './lib/site-update.mjs';
 import { createRuntimeHealth } from './lib/runtime-health.mjs';
+import { sendError } from './lib/error-response.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'portfolio');
@@ -132,7 +133,7 @@ const server = createServer(async (req, res) => {
       }
       const deviceMatch = path.match(/^\/api\/portfolio\/push\/devices\/([a-f0-9-]{36})$/);
       if (deviceMatch && method === 'DELETE') return json(res, 200, { deleted: push.remove(deviceMatch[1], req.user.id) });
-      return json(res, 404, { error: '요청한 알림 경로를 찾을 수 없습니다.' });
+      return sendError(req, res, 404, '요청한 알림 경로를 찾을 수 없습니다.');
     }
     if (path === '/admin' && read) { res.writeHead(302, { Location: '/admin/' }); return res.end(); }
     if (asset && read) {
@@ -153,8 +154,8 @@ const server = createServer(async (req, res) => {
       if (method === 'PUT') return json(res, 200, { project: store.saveProject(await body(req), match[1]) });
       if (method === 'DELETE') { store.remove(match[1]); return json(res, 200, { deleted: true }); }
     }
-    json(res, 404, { error: '페이지를 찾을 수 없습니다.' });
-  } catch (error) { if (!res.headersSent) json(res, error.status || 500, { error: error.status ? error.message : '요청을 처리하지 못했습니다.' }); else res.end(); }
+    sendError(req, res, 404, '페이지를 찾을 수 없습니다.');
+  } catch (error) { sendError(req, res, error.status || 500, error.status ? error.message : undefined); }
 });
 server.requestTimeout = 60000; server.headersTimeout = 10000;
 const host = process.env.PORTFOLIO_HOST || '127.0.0.1', port = Number(process.env.PORTFOLIO_PORT || 3212);

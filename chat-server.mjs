@@ -13,6 +13,7 @@ import { createRuntimeHealth } from './lib/runtime-health.mjs';
 import { createAppTts } from './lib/qwen-tts.mjs';
 import { resolveChatSpeechSource } from './lib/tts-source.mjs';
 import { sendSpeech } from './lib/tts-response.mjs';
+import { sendError, publicErrorMessage } from './lib/error-response.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'chat');
@@ -104,9 +105,9 @@ async function send(req, res, id, input, store, user) {
   } catch (error) {
     status = signal.aborted ? 'interrupted' : 'error';
     if (assistantId) store.finish(assistantId, text, status, sources);
-    const message = signal.aborted ? '답변이 중단되었거나 제한 시간(5분)을 초과했습니다.' : error.status ? error.message : '답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    const message = signal.aborted ? '답변이 중단되었거나 제한 시간(5분)을 초과했습니다.' : publicErrorMessage(error.status || 502, error.message);
     if (res.headersSent) emit({ type: 'error', text: message });
-    else if (!res.destroyed) json(res, error.status || 502, { error: message });
+    else if (!res.destroyed) sendError(req, res, error.status || 502, message);
   } finally {
     clearInterval(heartbeat); clearInterval(accessCheck); controller.abort(); active.delete(activeKey); res.off('close', disconnect);
     if (!res.destroyed) res.end();
@@ -159,10 +160,9 @@ const server = createServer(async (req, res) => {
       }
       if (match[2] && method === 'POST') return await send(req, res, id, await body(req), store, req.user);
     }
-    json(res, 404, { error: '요청한 경로를 찾을 수 없습니다.' });
+    sendError(req, res, 404, '요청한 경로를 찾을 수 없습니다.');
   } catch (error) {
-    if (!res.headersSent) json(res, error.status || 500, { error: error.status ? error.message : '요청을 처리하지 못했습니다.' });
-    else res.end();
+    sendError(req, res, error.status || 500, error.status ? error.message : undefined);
   }
 });
 server.requestTimeout = 30000; server.headersTimeout = 10000;
