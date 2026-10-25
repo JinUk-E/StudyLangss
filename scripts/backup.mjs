@@ -15,12 +15,15 @@ try {
   try { username = (await terminal.question('로그인 아이디 [haru]: ')).trim() || 'haru'; }
   finally { terminal.close(); }
   const password = await promptSecret('비밀번호 (화면에 표시되지 않음): ');
+  const language = process.env.STUDY_LANGUAGE || 'ja';
+  if (!['ja', 'en'].includes(language)) throw new Error('STUDY_LANGUAGE은 ja 또는 en이어야 합니다.');
+  destination.searchParams.set('language', language);
   const response = await fetch(destination, { headers: { Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}` }, redirect: 'error', signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`백업 요청 실패: HTTP ${response.status}`);
   const backup = await response.json();
   if (![1, 2].includes(backup.schemaVersion) || !Array.isArray(backup.questions)) throw new Error('백업 형식을 확인할 수 없습니다.');
   await mkdir(directory, { recursive: true });
-  const filename = resolve(directory, `haru-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+  const filename = resolve(directory, `haru-${language}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   await writeFile(filename, JSON.stringify(backup, null, 2), { flag: 'wx', mode: 0o600 });
   console.log(`백업 저장: ${filename}`);
 } catch (error) {

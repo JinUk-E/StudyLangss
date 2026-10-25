@@ -175,3 +175,9 @@ launchctl bootout "gui/$(id -u)/org.starlightforge.tts"
 ```
 
 Qwen으로 돌아갈 때는 위 갱신·샘플 확인·활성화 절차를 진행하고 `TTS_ENGINE=mac` 항목을 제거하거나 `qwen`으로 바꾼 뒤 Node LaunchAgent를 재등록합니다. `qwen` 강제 설정에서 설치·서비스가 실패하면 오류를 표시하며 몰래 다른 음성으로 대체하지 않습니다.
+
+## 영어 학습
+
+학습 화면의 학습 언어에서 일본어/영어를 선택합니다. 영어는 A1·A2·B1 참고 단계로 자체 제작 단어·문장·듣기 자료 24개와 문제 24개를 제공합니다. 문항·설정·진도·복습·브라우저 이어하기를 언어별로 분리하며 기존 일본어 데이터 경로는 그대로 유지합니다. 영어 데이터는 `DATA_DIR/languages/en/` 아래의 계정별 SQLite에 보관합니다. 화면에서 내려받는 백업은 현재 선택한 언어만 포함하고, 다른 언어의 백업을 복원하려 하면 거절합니다. CLI 영어 백업은 `STUDY_LANGUAGE=en npm run backup`으로 실행합니다.
+
+영어 듣기는 같은 Qwen 모델의 Ryan 목소리를 사용합니다. 기존 설치는 업데이트된 `tts/qwen_service.py`를 사용하도록 `org.starlightforge.tts`를 재시작하고 모델 로딩을 기다린 뒤 `npm run check-qwen-tts`를 실행합니다. 영어를 지원하는 실행 서비스라면 `data/tts/qwen-check-en.wav`도 생성됩니다. 모델을 새로 다운로드할 필요는 없습니다. 영어 원문은 영어로, 뜻·해설은 한국어로 읽으며 기존 음량 슬라이더와 음량 보정을 그대로 사용합니다.

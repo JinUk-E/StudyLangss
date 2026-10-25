@@ -9,7 +9,7 @@ export async function checkSamples(config, { fetchImpl = fetch } = {}) {
   const health = await serviceHealth(config, { fetchImpl });
   if (!health.ready || health.state !== 'ready') throw Error(health.state === 'loading' ? 'Qwen 모델을 로딩 중입니다. 잠시 뒤 다시 점검하세요.' : '모델 준비에 실패했습니다. data/tts/service.stderr.log와 Mac 설치 안내를 확인하세요.');
   const samples = [];
-  for (const [language, text] of [['ko', '안녕하세요. 저는 스텔라예요. 오늘도 차분하게 함께 공부해 볼까요?'], ['ja', 'こんにちは、ステラです。今日は一緒に日本語を勉強しましょう。']]) {
+  for (const [language, text] of [['ko', '안녕하세요. 저는 스텔라예요. 오늘도 차분하게 함께 공부해 볼까요?'], ['ja', 'こんにちは、ステラです。今日は一緒に日本語を勉強しましょう。'], ...(health.languages?.includes('en') && health.speakers?.en === 'Ryan' ? [['en', 'Welcome to Starlight Forge. Let us practice English together.']] : [])]) {
     const response = await fetchImpl('http://127.0.0.1:8877/synthesize', { method: 'POST', headers: { Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ text, language }), redirect: 'error', signal: AbortSignal.timeout(150000) });
     if (!response.ok) throw Error(`${language} 실제 음성 생성 실패 (HTTP ${response.status}). 웹 엔진 설정은 바꾸지 않았습니다.`);
     const limit = 16 * 1024 * 1024;
@@ -36,7 +36,7 @@ export async function check(args = process.argv.slice(2)) {
   }
   if (args.includes('--activate')) {
     await atomicPrivateJson(paths.active, { version: 1, ...identity, port: 8877, token: config.token });
-    console.log('두 언어 합성을 확인하고 Qwen을 활성화했습니다. 샘플을 직접 들어 보고 학습·채팅 Node 서버를 다시 시작하세요.');
+    console.log('지원 언어 합성을 확인하고 Qwen을 활성화했습니다. 샘플을 직접 들어 보고 학습·채팅 Node 서버를 다시 시작하세요.');
   } else console.log('음성 파일을 직접 들어 보세요. 웹에 적용하려면 --activate를 추가해 실행합니다.');
   console.log('launchctl kickstart -k "gui/$(id -u)/kr.haru.jlpt"');
   console.log('launchctl kickstart -k "gui/$(id -u)/org.starlightforge.chat"');

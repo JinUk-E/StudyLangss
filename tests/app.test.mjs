@@ -62,7 +62,7 @@ test('Japanese practice API follows target level, validates filters, and guards 
   const bank = (await api('/api/practice?kind=words')).data;
   assert.equal(bank.level, 'N4'); assert.equal(bank.language, 'ja'); assert.equal(bank.count, 12);
   assert.ok(bank.items.every(item => item.level === 'N4' && item.language === 'ja'));
-  for (const query of ['kind=unknown', 'level=N0', 'queue=invalid', 'limit=-1', 'limit=1.5', 'language=en']) assert.equal((await api(`/api/practice?${query}`)).status, 400);
+  for (const query of ['kind=unknown', 'level=N0', 'queue=invalid', 'limit=-1', 'limit=1.5', 'language=ko']) assert.equal((await api(`/api/practice?${query}`)).status, 400);
   const input = { requestId: 'api-practice-0001', entryId: bank.items[0].id, kind: 'listening', rating: 'good', durationMs: 5000, answer: '' };
   assert.equal((await api('/api/practice/grade', 'POST', input)).status, 400);
   const result = await api('/api/practice/grade', 'POST', { ...input, listened: true });
@@ -226,4 +226,38 @@ test('review intervals expand on recall and reset on a miss', () => {
   const first = schedule(null, 'good', now), second = schedule(first, 'good', now), missed = schedule(second, 'again', now);
   assert.equal(first.intervalDays, 1); assert.equal(second.intervalDays, 2); assert.ok(missed.intervalDays < 1);
   assert.ok(schedule({ intervalDays: 179 }, 'easy', now).intervalDays <= 180);
+});
+
+test('English selection isolates levels, material, progress and backup from Japanese', async () => {
+  const japanese = (await api('/api/backup')).data, headers = { 'X-Study-Language': 'en' };
+  for (const level of ['A1', 'A2', 'B1']) {
+    const bank = await api(`/api/practice?level=${level}&kind=words`, 'GET', undefined, headers);
+    assert.equal(bank.status, 200); assert.equal(bank.data.language, 'en'); assert.equal(bank.data.items.length, 8);
+    assert.ok(bank.data.items.every(item => item.level === level && item.language === 'en'));
+    const quizzes = await api(`/api/questions?level=${level}`, 'GET', undefined, headers);
+    assert.equal(quizzes.data.questions.length, 8);
+    assert.deepEqual([...new Set(quizzes.data.questions.map(q => q.area))].sort(), ['grammar', 'listening', 'reading', 'vocabulary']);
+    assert.ok(quizzes.data.questions.every(q => !Object.hasOwn(q, 'answerIndex') && !Object.hasOwn(q, 'explanation')));
+  }
+  const enState = (await api('/api/state?language=en')).data;
+  assert.equal(enState.language, 'en'); assert.equal(enState.settings.level, 'A1');
+  assert.deepEqual(enState.levels, ['A1', 'A2', 'B1']);
+  const quiz = (await api('/api/questions?language=en')).data.questions[0];
+  assert.equal((await api('/api/attempts', 'POST', { questionId: quiz.id, answerIndex: 0, durationMs: 1000 }, headers)).status, 201);
+  assert.equal((await api('/api/attempts', 'POST', { questionId: quiz.id, answerIndex: 0, durationMs: 1000 })).status, 404);
+  assert.equal((await api('/api/tts/audio', 'POST', { questionId: 'n5-l01', part: 'passage' }, headers)).status, 404);
+  const item = (await api('/api/practice?language=en&kind=sentences')).data.items[0];
+  const grade = await api('/api/practice/grade', 'POST', { entryId: item.id, kind: 'sentences', rating: 'good', requestId: 'english-case-001', durationMs: 1000, answer: item.target.toUpperCase() }, headers);
+  assert.equal(grade.status, 200); assert.equal(grade.data.match, true);
+  const backup = (await api('/api/backup?language=en')).data;
+  assert.equal(backup.language, 'en'); assert.equal(backup.attempts.length, 1); assert.equal(backup.practice.events.length, 1);
+  assert.equal((await api('/api/restore', 'POST', backup)).status, 400);
+  assert.equal((await api('/api/restore', 'POST', japanese, headers)).status, 400);
+  assert.equal((await api('/api/settings', 'PUT', { level: 'N5' }, headers)).status, 400);
+  assert.equal((await api('/api/settings', 'PUT', { level: 'A2' }, headers)).status, 200);
+  assert.equal((await api('/api/restore', 'POST', backup, headers)).status, 200);
+  const after = (await api('/api/backup')).data;
+  for (const key of ['settings', 'questions', 'attempts', 'reviews', 'practice']) assert.deepEqual(after[key], japanese[key]);
+  assert.equal((await api('/api/state', 'GET', undefined, { 'X-Study-Language': '../en' })).status, 400);
+  assert.equal((await fetch(base+'/api/state?language=en')).status, 401);
 });

@@ -171,3 +171,11 @@ test('chat voice discovery preserves provider readiness and reports backend busy
   assert.equal(await busy.speech.play({ messageId: 'm1' }, { status: text => statuses.push(text) }), false);
   assert.match(statuses.at(-1), /다른 음성을 생성 중/); assert.equal(busy.players.length, 0);
 });
+
+test('English study speech carries language scope on voice lookup and audio requests', async () => {
+  const f=fixture();const speech=createSpeech(f.host,{studyLanguage:'en'});
+  await speech.voices();assert.equal(f.requests[0].options.headers['X-Study-Language'],'en');
+  const pending=speech.play(source);await flush();
+  assert.equal(f.requests.at(-1).options.headers['X-Study-Language'],'en');
+  f.players[0].onended();assert.equal(await pending,true);
+});

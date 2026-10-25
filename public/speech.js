@@ -39,8 +39,10 @@ function volumePreferences(host) {
 }
 
 /** Fetch authenticated Mac-generated audio; only a real ended event completes listening. */
-export function createSpeech(host = globalThis, { service = 'study' } = {}) {
+export function createSpeech(host = globalThis, { service = 'study', studyLanguage = 'ja' } = {}) {
   if (!['study', 'chat'].includes(service)) throw new Error('지원하지 않는 음성 서비스입니다.');
+  if (!['ja', 'en'].includes(studyLanguage)) throw new Error('지원하지 않는 학습 언어입니다.');
+  const studyHeaders = service === 'study' ? { 'X-Study-Language': studyLanguage } : {};
   const base = service === 'chat' ? '/api/chat/tts' : '/api/tts';
   const later = host.setTimeout?.bind(host) || setTimeout;
   const clear = host.clearTimeout?.bind(host) || clearTimeout;
@@ -83,7 +85,7 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
     if (signal?.aborted) controller.abort();
     else signal?.addEventListener('abort', abort, { once: true });
     try {
-      const response = await host.fetch(`${base}/voices`, { credentials: 'same-origin', signal: controller.signal });
+      const response = await host.fetch(`${base}/voices`, { credentials: 'same-origin', headers: studyHeaders, signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || `서버 음성 상태를 확인하지 못했습니다 (${response.status}).`);
       return { ...data, available: Boolean(data.available), voices: Array.isArray(data.voices) ? data.voices : [], error: data.error || '' };
@@ -113,7 +115,7 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
       state.timer = later(() => { if (current === state) { state.status('Mac 서버의 음성 준비 시간이 초과되었습니다. 다시 시도해 주세요.', 'error'); finish(state, false); } }, 150000);
       (async () => {
         try {
-          const response = await host.fetch(`${base}/audio`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: state.controller.signal });
+          const response = await host.fetch(`${base}/audio`, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...studyHeaders }, body: JSON.stringify(body), signal: state.controller.signal });
           if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(data.error || `음성을 준비하지 못했습니다 (${response.status}).`); }
           if (!/^audio\/(?:wav|x-wav|wave)(?:;|$)/i.test(response.headers.get('content-type') || '')) throw new Error('서버에서 올바른 음성 파일을 받지 못했습니다.');
           const blob = await response.blob();
@@ -172,4 +174,4 @@ export function createSpeech(host = globalThis, { service = 'study' } = {}) {
   return { play, cancel, voices, volumeControl, getVolume: () => volume.value, setVolume: value => volume.set(value) };
 }
 
-export function createJapaneseSpeech(host = globalThis) { return createSpeech(host); }
+export function createJapaneseSpeech(host = globalThis, options = {}) { return createSpeech(host, options); }

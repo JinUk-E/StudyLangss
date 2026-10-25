@@ -17,7 +17,7 @@ test('speech resolves persisted Japanese sources and Korean meanings with server
     assert.deepEqual(resolveSpeechSource(store, { questionId: 'n5-l01', part: 'passage' }), { text: store.question('n5-l01').passage, voice: undefined, language: 'ja' });
     for (const input of [null, [], {}, { text: 'free text' }, { entryId: item.id, part: 'word', text: 'injected' }, { entryId: item.id, part: 'word', language: 'ko' }, { entryId: item.id, part: 'word', questionId: 'n5-l01' }, { entryId: '../file', part: 'word' }, { entryId: item.id, part: 'word', voice: {} }, { questionId: 'n5-v01', part: 'passage' }]) assert.throws(() => resolveSpeechSource(store, input));
     store.db.prepare('UPDATE practice_items SET json=? WHERE id=?').run(JSON.stringify({ ...item, language: 'en' }), item.id);
-    assert.throws(() => resolveSpeechSource(store, { entryId: item.id, part: 'word' }), /일본어/);
+    assert.throws(() => resolveSpeechSource(store, { entryId: item.id, part: 'word' }), /언어/);
     store.db.prepare('UPDATE practice_items SET json=? WHERE id=?').run(JSON.stringify({ ...item, example: 'あ'.repeat(2001) }), item.id);
     assert.throws(() => resolveSpeechSource(store, { entryId: item.id, part: 'sentence' }), /너무 깁니다/);
   } finally { store.db.close(); await rm(directory, { recursive: true, force: true }); }

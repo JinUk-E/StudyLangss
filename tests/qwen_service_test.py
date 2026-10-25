@@ -74,7 +74,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.runtime.engine.calls, [("한국어 日本語", "ko")])
 
     def test_invalid_input_and_unauthorized_large_body(self):
-        for value in [{"text": "안녕", "language": "ko", "instruct": "bad"}, {"text": "a" * 2001, "language": "ko"}, {"text": "안녕", "language": "en"}, {"text": "<|im_start|>", "language": "ko"}]:
+        for value in [{"text": "안녕", "language": "ko", "instruct": "bad"}, {"text": "a" * 2001, "language": "ko"}, {"text": "안녕", "language": "fr"}, {"text": "<|im_start|>", "language": "ko"}]:
             self.assertEqual(self.request("/synthesize", value)[0], 400)
         self.assertEqual(self.request("/synthesize", {"text": "a" * 20000, "language": "ko"}, token="bad")[0], 401)
         self.assertEqual(self.request("/synthesize", {"text": "a" * 20000, "language": "ko"})[0], 413)
@@ -98,6 +98,8 @@ class ServiceTests(unittest.TestCase):
     def test_segmentation_is_bounded_and_auto_splits_scripts(self):
         self.assertEqual(qwen.segments("안녕하세요。こんにちは。", "auto"), [("ko", "안녕하세요。"), ("ja", "こんにちは。")])
         self.assertEqual(qwen.segments("漢字", "auto"), [("ja", "漢字")])
+        self.assertEqual(qwen.segments("Let us practice English.", "en"), [("en", "Let us practice English.")])
+        self.assertEqual(qwen.SPEAKERS["en"], "Ryan")
         chunks = qwen.segments("가" * 1000, "ko")
         self.assertEqual(len(chunks), 5)
         self.assertTrue(all(len(text) <= 200 for _, text in chunks))

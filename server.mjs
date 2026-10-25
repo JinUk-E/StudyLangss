@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve, dirname, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './lib/store.mjs';
-import { assert, LEVELS, AREAS, publicQuestion } from './lib/validation.mjs';
+import { assert, levelsFor, AREAS, publicQuestion } from './lib/validation.mjs';
+import { englishQuestions, englishPractice } from './content/english.mjs';
 import { questions as seeds } from './content/questions.mjs';
 import { loadAuth } from './lib/auth.mjs';
 import { createAppTts } from './lib/qwen-tts.mjs';
@@ -25,6 +26,13 @@ let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(dataDirectory, 'auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
 const stores = createUserStores(dataDirectory, directory => createStore(directory, seeds), 'jlpt.sqlite');
+let englishStores;
+function studyStore(user, language) {
+  levelsFor(language);
+  if (language === 'ja') return stores.get(user);
+  englishStores ||= createUserStores(resolve(dataDirectory, 'languages/en'), directory => createStore(directory, englishQuestions, { language: 'en', practiceSeeds: englishPractice }), 'jlpt.sqlite');
+  return englishStores.get(user);
+}
 const tts = createAppTts({ root, cacheDir: resolve(dataDirectory, 'tts-cache'), namespace: 'study' });
 const PORT = Number(process.env.PORT || 3210), HOST = process.env.HOST || '127.0.0.1';
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.woff2': 'font/woff2' };
@@ -50,7 +58,7 @@ function state(store) {
   const days = new Set(attempts.map(a => day(a.createdAt)));
   let streak = 0, cursor = new Date(now); if (!days.has(day(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1);
   while (days.has(day(cursor))) { streak++; cursor.setUTCDate(cursor.getUTCDate() - 1); }
-  return { settings, practice: store.practice.summary(settings.level), stats: { todayAnswered: todays.length, todayCorrect: todays.filter(a => a.correct).length, totalAnswered: attempts.length, accuracy: attempts.length ? Math.round(attempts.filter(a => a.correct).length / attempts.length * 100) : 0, dueCount: reviewItems.filter(r => r.dueAt <= now.toISOString()).length, streak }, areas: AREAS.map(area => ({ area, answered: attempts.filter(a => qs.get(a.questionId).area === area).length, correct: attempts.filter(a => qs.get(a.questionId).area === area && a.correct).length })), recentAttempts: attempts.slice(-30).reverse().map(a => ({ ...a, prompt: qs.get(a.questionId).prompt, area: qs.get(a.questionId).area, level: qs.get(a.questionId).level })), reviewItems };
+  return { language: store.language, levels: store.levels, settings, practice: store.practice.summary(settings.level), stats: { todayAnswered: todays.length, todayCorrect: todays.filter(a => a.correct).length, totalAnswered: attempts.length, accuracy: attempts.length ? Math.round(attempts.filter(a => a.correct).length / attempts.length * 100) : 0, dueCount: reviewItems.filter(r => r.dueAt <= now.toISOString()).length, streak }, areas: AREAS.map(area => ({ area, answered: attempts.filter(a => qs.get(a.questionId).area === area).length, correct: attempts.filter(a => qs.get(a.questionId).area === area && a.correct).length })), recentAttempts: attempts.slice(-30).reverse().map(a => ({ ...a, prompt: qs.get(a.questionId).prompt, area: qs.get(a.questionId).area, level: qs.get(a.questionId).level })), reviewItems };
 }
 let aiBusy = false;
 async function ollama(path, options = {}) {
@@ -70,24 +78,26 @@ async function api(req, res, url, store) {
     return sendSpeech(req, res, { tts, source: resolveSpeechSource(store, await body(req)), accounts: authenticate.accounts, permission: 'study' });
   }
   if (method === 'GET' && path === '/api/practice') {
-    assert(!url.searchParams.has('language') || url.searchParams.get('language') === 'ja', '현재 일본어 연습만 지원합니다.');
+    assert(!url.searchParams.has('language') || url.searchParams.get('language') === store.language, '학습 언어를 확인해 주세요.');
     const level = url.searchParams.get('level') || store.getSettings().level;
     const kind = url.searchParams.get('kind') || 'words', queue = url.searchParams.get('queue') || 'recommended';
     const limit = Number(url.searchParams.get('limit') || 10);
     assert(Number.isInteger(limit) && limit >= 1 && limit <= 50, '학습량은 1~50개입니다.');
     return json(res, 200, store.practice.list(level, kind, queue, limit));
   }
-  if (method === 'GET' && path === '/api/practice/summary') return json(res, 200, { language: 'ja', level: store.getSettings().level, summary: store.practice.summary(store.getSettings().level) });
+  if (method === 'GET' && path === '/api/practice/summary') return json(res, 200, { language: store.language, level: store.getSettings().level, summary: store.practice.summary(store.getSettings().level) });
   if (method === 'POST' && path === '/api/practice/grade') { const input = await body(req); return json(res, 200, store.transaction(() => store.practice.grade(input))); }
   if (method === 'GET' && path === '/api/settings') return json(res, 200, settingsFor(store));
   if (method === 'PUT' && path === '/api/settings') {
     const input = await body(req);
     if (!req.user.isAdmin) assert(input.ollamaUrl === undefined || input.ollamaUrl === settingsFor(store).ollamaUrl, 'AI 연결 주소는 관리자만 변경할 수 있습니다.', 403);
-    return json(res, 200, store.setSettings({ ...settingsFor(store), ...input }));
+    const saved = store.setSettings({ ...settingsFor(store), ...input });
+    if (req.user.isAdmin && input.ollamaUrl !== undefined && store.language !== 'ja') stores.owner.setSettings({ ...stores.owner.getSettings(), ollamaUrl: saved.ollamaUrl });
+    return json(res, 200, saved);
   }
   if (method === 'GET' && path === '/api/questions') {
     const level = url.searchParams.get('level') || store.getSettings().level, mode = url.searchParams.get('mode') || 'study', area = url.searchParams.get('area') || 'all';
-    assert(LEVELS.includes(level) && ['study', 'review'].includes(mode) && ['all', ...AREAS].includes(area), '학습 필터를 확인해 주세요.');
+    assert(store.levels.includes(level) && ['study', 'review'].includes(mode) && ['all', ...AREAS].includes(area), '학습 필터를 확인해 주세요.');
     const due = new Set(store.reviews().filter(r => r.dueAt <= new Date().toISOString()).map(r => r.questionId));
     let qs = store.questions().filter(q => q.level === level && (area === 'all' || q.area === area) && (mode !== 'review' || due.has(q.id)));
     if (mode === 'study') { const counts = new Map(); for (const a of store.attempts()) counts.set(a.questionId, (counts.get(a.questionId) || 0) + 1); qs.sort((a, b) => (counts.get(a.id) || 0) - (counts.get(b.id) || 0)); }
@@ -98,7 +108,7 @@ async function api(req, res, url, store) {
   if (method === 'POST' && path === '/api/attempts') return json(res, 201, store.attempt(await body(req)));
   if (method === 'GET' && path === '/api/reviews') {
     const level = url.searchParams.get('level') || store.getSettings().level;
-    assert(LEVELS.includes(level), '목표 급수를 확인해 주세요.');
+    assert(store.levels.includes(level), '목표 급수를 확인해 주세요.');
     return json(res, 200, { items: store.reviews().map(r => ({ ...publicQuestion(store.question(r.questionId)), ...r })).filter(q => q.level === level) });
   }
   if (method === 'POST' && /^\/api\/reviews\/[^/]+$/.test(path)) {
@@ -115,16 +125,17 @@ async function api(req, res, url, store) {
     assert(store.attempts().some(a => a.questionId === q.id), '답안을 제출한 뒤 AI 설명을 요청할 수 있습니다.', 409);
     assert(input.question === undefined || (typeof input.question === 'string' && input.question.length <= 2000), '질문은 2000자 이하여야 합니다.');
     const settings = settingsFor(store); assert(settings.ollamaModel, '설정에서 Ollama 모델을 선택해 주세요.', 409);
-    const cacheKey = createHash('sha256').update(JSON.stringify([STELLA_LESSON_INSTRUCTIONS, q, input.question || '', settings.ollamaUrl, settings.ollamaModel])).digest('hex');
+    const lessonInstructions = store.language === 'en' ? STELLA_LESSON_INSTRUCTIONS.replace('JLPT 일본어', '영어').replaceAll('일본어', '영어') : STELLA_LESSON_INSTRUCTIONS;
+    const cacheKey = createHash('sha256').update(JSON.stringify([lessonInstructions, q, input.question || '', settings.ollamaUrl, settings.ollamaModel])).digest('hex');
     const cached = store.db.prepare('SELECT text FROM ai_cache WHERE key=?').get(cacheKey);
     if (cached) return json(res, 200, { text: cached.text, cached: true });
     assert(!aiBusy, 'AI가 설명을 작성 중입니다. 잠시 후 다시 시도해 주세요.', 429); aiBusy = true;
     try {
-      const result = await ollama('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: settings.ollamaModel, stream: false, messages: [{ role: 'system', content: STELLA_LESSON_INSTRUCTIONS }, { role: 'user', content: JSON.stringify({ level: q.level, prompt: q.prompt, passage: q.passage, choices: q.choices, answer: q.choices[q.answerIndex], explanation: q.explanation, learnerQuestion: input.question || '이 문제를 이해하기 쉽게 설명해 주세요.' }) }], options: { temperature: 0.3, num_predict: 1200, num_ctx: 8192 } }) });
+      const result = await ollama('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: settings.ollamaModel, stream: false, messages: [{ role: 'system', content: lessonInstructions }, { role: 'user', content: JSON.stringify({ level: q.level, prompt: q.prompt, passage: q.passage, choices: q.choices, answer: q.choices[q.answerIndex], explanation: q.explanation, learnerQuestion: input.question || '이 문제를 이해하기 쉽게 설명해 주세요.' }) }], options: { temperature: 0.3, num_predict: 1200, num_ctx: 8192 } }) });
       assert(typeof result.message?.content === 'string' && result.message.content.trim(), 'AI가 비어 있는 응답을 반환했습니다.', 502); store.db.prepare('INSERT OR REPLACE INTO ai_cache VALUES (?,?)').run(cacheKey, result.message.content); return json(res, 200, { text: result.message.content });
     } finally { aiBusy = false; }
   }
-  if (method === 'GET' && path === '/api/backup') { res.setHeader('Content-Disposition', `attachment; filename="jlpt-backup-${new Date().toISOString().slice(0, 10)}.json"`); return json(res, 200, { ...store.backup(), settings: settingsFor(store) }); }
+  if (method === 'GET' && path === '/api/backup') { res.setHeader('Content-Disposition', `attachment; filename="${store.language}-backup-${new Date().toISOString().slice(0, 10)}.json"`); return json(res, 200, { ...store.backup(), settings: settingsFor(store) }); }
   if (method === 'POST' && path === '/api/restore') {
     const input = await body(req);
     if (!req.user.isAdmin && input.settings && typeof input.settings === 'object' && !Array.isArray(input.settings)) input.settings = { ...input.settings, ollamaUrl: stores.owner.getSettings().ollamaUrl };
@@ -148,7 +159,7 @@ const server = createServer(async (req, res) => {
       assert(req.headers['sec-fetch-site'] !== 'cross-site', '다른 사이트에서의 요청은 허용하지 않습니다.', 403);
       if (req.headers.origin) { let origin; try { origin = new URL(req.headers.origin); } catch { assert(false, '요청 출처를 확인할 수 없습니다.', 403); } assert(origin.host === req.headers.host && ['http:', 'https:'].includes(origin.protocol), '다른 사이트에서의 요청은 허용하지 않습니다.', 403); }
     }
-    if (url.pathname.startsWith('/api/')) return await api(req, res, url, stores.get(req.user));
+    if (url.pathname.startsWith('/api/')) return await api(req, res, url, studyStore(req.user, req.headers['x-study-language'] || url.searchParams.get('language') || 'ja'));
     assert(req.method === 'GET' || req.method === 'HEAD', '허용하지 않는 요청입니다.', 405);
     const pathname = decodeURIComponent(url.pathname), filename = resolve(publicDir, `.${pathname === '/' ? '/index.html' : pathname}`);
     assert(filename.startsWith(publicDir + sep), '허용하지 않는 경로입니다.', 403);
@@ -167,8 +178,8 @@ let stopping = false;
 function shutdown() {
   if (stopping) return; stopping = true;
   const closed = Promise.resolve(tts.close()).catch(() => {});
-  server.close(async () => { await closed; stores.close(); authenticate.accounts.close(); process.exit(0); });
+  server.close(async () => { await closed; stores.close(); englishStores?.close(); authenticate.accounts.close(); process.exit(0); });
   server.closeIdleConnections();
-  setTimeout(() => { server.closeAllConnections(); stores.close(); authenticate.accounts.close(); process.exit(0); }, 5000).unref();
+  setTimeout(() => { server.closeAllConnections(); stores.close(); englishStores?.close(); authenticate.accounts.close(); process.exit(0); }, 5000).unref();
 }
 process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);

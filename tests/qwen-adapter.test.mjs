@@ -72,3 +72,11 @@ test('Qwen replaces pre-normalization cache entries and caches the louder audio 
   assert.equal(second.cached, true); assert.deepEqual(second.buffer, first.buffer); assert.equal(generated, 1);
   assert.deepEqual(await readFile(join(directory, `${legacyKey}.wav`)), raw);
 });
+
+test('English voice is advertised only when the worker confirms its native speaker', async t => {
+  const { filename } = await fixture(t);
+  let health = { ...ready, languages: ['ko','ja','en'], speakers: { ...ready.speakers, en: 'Ryan' } };
+  const backend = createQwenBackend(filename, { request: async () => ({ status: 200, buffer: Buffer.from(JSON.stringify(health)) }) });
+  assert.equal((await backend.voices()).voices.find(v=>v.language==='en-US').id,'stella-en');
+  health = ready; assert.equal((await backend.voices()).voices.some(v=>v.language==='en-US'),false);
+});

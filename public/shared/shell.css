@@ -167,3 +167,8 @@ body:not([data-account-study=true]) [data-section-tab=study],body:not([data-acco
 }
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 @media print{.global-header,.section-sidebar,.sidebar,#sidebar,.no-print{display:none!important}body[data-section=home]{padding:0;background:white}body[data-section=home] main{width:100%;max-width:none;min-height:0;margin:0;padding:0}a{color:inherit}}
+
+/* Language selection remains reachable on every study screen. */
+body[data-section=study] .topbar{flex-wrap:wrap;gap:12px}
+.study-language{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:13px;color:var(--workspace-muted)}
+.study-language select{min-height:40px;min-width:96px;border:1px solid var(--workspace-line);border-radius:10px;background:white;color:var(--workspace-ink);padding:6px 10px}

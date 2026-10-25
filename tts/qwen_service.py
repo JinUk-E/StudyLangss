@@ -16,8 +16,9 @@ import wave
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 MANIFEST = json.loads(Path(__file__).with_name("manifest.json").read_text(encoding="utf-8"))
-SPEAKERS = {"ko": "Sohee", "ja": "Ono_Anna"}
+SPEAKERS = {"ko": "Sohee", "ja": "Ono_Anna", "en": "Ryan"}
 INSTRUCTIONS = {
+    "en": "Speak calmly and clearly with a warm, patient tone. Use natural English pronunciation and a comfortable pace for a language learner.",
     "ko": "차분하고 부드러운 목소리로, 배려심 있고 지적인 안내자처럼 말하세요. 발음은 명료하게, 속도는 여유롭게, 감정과 억양은 과장하지 마세요.",
     "ja": "落ち着いた優しい声で、知的で思いやりのある案内役として話してください。明瞭に、少しゆったりと、感情や抑揚は大げさにしないでください。",
 }
@@ -47,7 +48,7 @@ def load_config(filename):
 
 
 def segments(text, language):
-    if language not in ("auto", "ko", "ja") or not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT:
+    if language not in ("auto", "ko", "ja", "en") or not isinstance(text, str) or not text.strip() or len(text) > MAX_TEXT:
         raise ServiceError("invalid_text")
     if any(ord(c) < 32 and c not in "\n\r\t" for c in text) or "<|" in text or "|>" in text:
         raise ServiceError("invalid_text")
@@ -101,7 +102,7 @@ class MlxEngine:
         import numpy as np
         # API verified against mlx-audio v0.6.0 qwen3_tts.py. One segment, no streaming.
         with mx.stream(mx.default_stream(mx.default_device())):
-            results = self.model.generate(text=text, voice=SPEAKERS[language], lang_code={"ko": "Korean", "ja": "Japanese"}[language], instruct=INSTRUCTIONS[language], max_tokens=MAX_TOKENS, temperature=0.7, stream=False, verbose=False)
+            results = self.model.generate(text=text, voice=SPEAKERS[language], lang_code={"ko": "Korean", "ja": "Japanese", "en": "English"}[language], instruct=INSTRUCTIONS[language], max_tokens=MAX_TOKENS, temperature=0.7, stream=False, verbose=False)
             result = next(results, None)
             if result is None or result.sample_rate != 24000 or result.token_count >= MAX_TOKENS:
                 raise ServiceError("generation_limit", 422)
@@ -134,7 +135,7 @@ class Runtime:
             print("Qwen model initialization failed; inspect installation and run setup --refresh.", flush=True)
 
     def health(self):
-        return {**{k: v for k, v in MANIFEST.items() if k != "mlxAudioVersion"}, "ready": self.state == "ready", "state": self.state, "languages": ["ko", "ja"], "speakers": SPEAKERS}
+        return {**{k: v for k, v in MANIFEST.items() if k != "mlxAudioVersion"}, "ready": self.state == "ready", "state": self.state, "languages": ["ko", "ja", "en"], "speakers": SPEAKERS}
 
     def synthesize(self, value):
         if not isinstance(value, dict) or set(value) != {"text", "language"}:
