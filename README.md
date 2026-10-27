@@ -27,6 +27,10 @@ UI 개편 내용과 검증 범위는 [검증 기록](docs/ui-refresh/verificatio
 
 더그아웃 소개·이미지 경로·저장소 링크는 [baseball-project.mjs](content/baseball-project.mjs)에 모았습니다. 게임은 기존에 클론된 `JinUk-E/BaseBallLife`를 확인했으며 이 웹사이트에는 소개와 이미지가 포함됩니다.
 
+ProjectF 상세 화면의 **Windows 빌드 다운로드**는 [0.1.0-preview 릴리스](https://github.com/JinUk-E/StudyLangss/releases/tag/projectf-windows-0.1.0-preview) 첨부 파일로 연결됩니다. ZIP은 57,171,233바이트(약 54.5MiB)이며 Git 기록·앱 DB·Mac 웹서버에 넣지 않습니다. 압축을 모두 풀고 `START-HERE.html` 안내에 따라 `ProjectF.exe`를 실행합니다. 빌드와 함께 `.sha256` 검증 파일도 제공합니다.
+
+다운로드 주소·버전·파일 크기·SHA-256은 [projectf-download.mjs](content/projectf-download.mjs)에 기록했습니다. 기존 설치는 포트폴리오 서버 재시작 때 ProjectF의 비어 있는 외부 링크만 한 번 채우고, 직접 입력한 링크·공개 설정·프로젝트 삭제는 보존합니다. 별도 Nginx 다운로드 경로 설정은 필요하지 않습니다.
+
 ## 페이지와 접근 권한
 
 | 경로 | 기능 | 접근 권한 |

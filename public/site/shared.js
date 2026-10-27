@@ -20,9 +20,16 @@ export function projectDetails(project) {
   if (project.cover) fragment.append(image(project.cover, `${project.title} 대표 이미지`, 'detail-image'));
   fragment.append(el('p', project.description, 'detail-description'));
   const links = el('div', undefined, 'detail-links');
-  if (project.link) links.append(external('프로젝트 방문 ↗', project.link, 'button dark'));
+  const downloadPath = project.link ? new URL(project.link).pathname : '';
+  const zip = /\.zip$/i.test(downloadPath);
+  if (project.link) {
+    let label = '프로젝트 방문 ↗';
+    if (zip) label = /-windows-/i.test(downloadPath) ? 'Windows 빌드 다운로드 (.zip) ↗' : '빌드 다운로드 (.zip) ↗';
+    links.append(external(label, project.link, 'button dark'));
+  }
   if (project.repository) links.append(external('소스 코드 ↗', project.repository, 'button light'));
   fragment.append(links);
+  if (zip) fragment.append(el('p', 'ZIP을 모두 푼 뒤 폴더 안의 실행 안내를 확인해 주세요.', 'detail-summary'));
   for (const path of project.gallery) fragment.append(image(path, `${project.title} 추가 이미지`, 'detail-image'));
   return fragment;
 }

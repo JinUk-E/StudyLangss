@@ -76,3 +76,14 @@ test('empty optional resume columns collapse without adding fabricated experienc
   assert.equal(document.querySelectorAll('.privacy-note').length, 0); assert.equal(document.querySelector('.resume-aside').hidden, true);
   assert.ok(document.querySelector('.resume-layout').className.includes('resume-layout-single')); assert.equal(document.querySelectorAll('.resume-entry').length, 0);
 });
+
+test('project details offer the Windows ZIP as a download while preserving normal website links and safe new-tab behavior', async () => {
+  const source = (await load('shared')).replace(/^export /gm, '');
+  const context = vm.createContext({ URL, document: { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment') } });
+  vm.runInContext(`${source}\nthis.details = projectDetails;`, context);
+  const value = { ...project('f'), description: '실제 게임 설명', role: '개발', gallery: [], link: 'https://github.com/JinUk-E/StudyLangss/releases/download/projectf-windows-0.1.0-preview/ProjectF-Windows-0.1.0-preview.zip' };
+  const details = context.details(value), anchor = details.querySelector('a');
+  assert.match(anchor.textContent, /Windows 빌드 다운로드/); assert.equal(anchor.href, value.link);
+  assert.equal(anchor.target, '_blank'); assert.equal(anchor.rel, 'noopener noreferrer'); assert.match(details.textContent, /ZIP을 모두 푼 뒤/);
+  assert.equal(context.details({ ...value, link: 'https://example.com/project' }).querySelector('a').textContent, '프로젝트 방문 ↗');
+});

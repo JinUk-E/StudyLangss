@@ -14,6 +14,7 @@ import previousCareerResume from '../content/career-resume-v1.json' with { type:
 import previousProjects from '../content/portfolio-projects-v1.json' with { type: 'json' };
 import { refreshedAssets, projectRefresh } from '../content/portfolio-latest.mjs';
 import { baseballProject, baseballAsset } from '../content/baseball-project.mjs';
+import { projectFDownload } from '../content/projectf-download.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -366,6 +367,36 @@ test('baseball addition rolls back image, project and profile if its migration m
   assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, projects.length);
   db.exec('DROP TRIGGER fail_baseball_marker'); db.close();
   store = createPortfolioStore(isolated); assert.ok(store.project(baseballProject.id)); store.db.close();
+});
+
+test('ProjectF download fills an empty existing link once and preserves edits, privacy, other projects and deletion', () => {
+  const isolated = join(directory, 'projectf-download'); let store = createPortfolioStore(isolated);
+  store.saveProject({ ...store.project(projectFDownload.projectId), link: '', summary: '직접 쓴 소개', published: false }, projectFDownload.projectId);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('projectf-download-20261027-v1');
+  const others = store.projects().filter(project => project.id !== projectFDownload.projectId);
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.equal(store.project(projectFDownload.projectId).link, projectFDownload.url);
+  assert.equal(store.project(projectFDownload.projectId).summary, '직접 쓴 소개'); assert.equal(store.project(projectFDownload.projectId).published, false);
+  for (const project of others) assert.deepEqual(store.project(project.id), project);
+  store.saveProject({ ...store.project(projectFDownload.projectId), link: 'https://example.com/custom' }, projectFDownload.projectId);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('projectf-download-20261027-v1');
+  store.db.close(); store = createPortfolioStore(isolated);
+  assert.equal(store.project(projectFDownload.projectId).link, 'https://example.com/custom');
+  store.remove(projectFDownload.projectId); store.db.prepare('DELETE FROM migrations WHERE id=?').run('projectf-download-20261027-v1');
+  store.db.close(); store = createPortfolioStore(isolated); assert.equal(store.project(projectFDownload.projectId), undefined); store.db.close();
+});
+
+test('ProjectF link and marker roll back together when the download migration fails', () => {
+  const isolated = join(directory, 'projectf-download-rollback'); let store = createPortfolioStore(isolated);
+  store.saveProject({ ...store.project(projectFDownload.projectId), link: '' }, projectFDownload.projectId);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('projectf-download-20261027-v1');
+  store.db.exec("CREATE TRIGGER fail_download_marker BEFORE INSERT ON migrations WHEN NEW.id='projectf-download-20261027-v1' BEGIN SELECT RAISE(ABORT, 'injected download failure'); END");
+  store.db.close(); assert.throws(() => createPortfolioStore(isolated), /injected download failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  assert.equal(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(projectFDownload.projectId).json).link, '');
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('projectf-download-20261027-v1'), undefined);
+  db.exec('DROP TRIGGER fail_download_marker'); db.close();
+  store = createPortfolioStore(isolated); assert.equal(store.project(projectFDownload.projectId).link, projectFDownload.url); store.db.close();
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {
