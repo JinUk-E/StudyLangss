@@ -14,6 +14,7 @@ import { createSiteUpdater } from './lib/site-update.mjs';
 import { createRuntimeHealth } from './lib/runtime-health.mjs';
 import { sendError } from './lib/error-response.mjs';
 import { webGameForSlug } from './content/web-games.mjs';
+import { createPublicRepositoryFilter } from './lib/public-repository-links.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'portfolio');
@@ -22,6 +23,8 @@ let authenticate;
 try { authenticate = await loadAuth(resolve(process.env.AUTH_FILE || resolve(root, 'data/auth.json'))); }
 catch (error) { console.error(error.message); process.exit(1); }
 const store = createPortfolioStore(resolve(process.env.PORTFOLIO_DATA_DIR || resolve(root, 'data/portfolio')));
+const publicLinks = createPublicRepositoryFilter();
+const publicData = () => publicLinks({ profile: store.profile(), projects: store.projects().filter(p => p.published) });
 const push = await createPushService({ ...pushPaths(root), isAccountActive: id => authenticate.accounts.isActive(id) });
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 const files = new Map([
@@ -69,7 +72,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/portfolio/public' && read) {
       if (method === 'HEAD') { res.writeHead(200); return res.end(); }
-      return json(res, 200, { profile: store.profile(), projects: store.projects().filter(p => p.published) });
+      return json(res, 200, await publicData());
     }
     if (path === '/robots.txt' && read) { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end(method === 'HEAD' ? undefined : 'User-agent: *\nDisallow: /admin\nDisallow: /api/\nDisallow: /chat\nDisallow: /study\n'); }
     if (path.startsWith('/media/') && read) {
@@ -100,7 +103,7 @@ const server = createServer(async (req, res) => {
       if (!await authenticate(req, res)) return;
       if (!requireAccess(req, res, 'admin')) return;
     }
-    if (path === '/api/portfolio/resume' && read && store.resume().published) return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
+    if (path === '/api/portfolio/resume' && read && store.resume().published) return json(res, 200, { resume: store.resume(), ...await publicData() });
     if (privateRoute && !await authenticate(req, res)) return;
     const memberRoute = path === '/app' || path.startsWith('/app/') || path === '/api/portfolio/me' || path.startsWith('/api/portfolio/push/');
     if (privateRoute && !memberRoute && !requireAccess(req, res, 'admin')) return;
@@ -155,7 +158,7 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects(), resume: store.resume() });
     if (path === '/api/portfolio/career-template' && method === 'GET') return json(res, 200, { resume: careerResume });
-    if (path === '/api/portfolio/resume' && method === 'GET') return json(res, 200, { resume: store.resume(), profile: store.profile(), projects: store.projects().filter(p => p.published) });
+    if (path === '/api/portfolio/resume' && method === 'GET') return json(res, 200, { resume: store.resume(), ...await publicData() });
     if (path === '/api/portfolio/resume' && method === 'PUT') return json(res, 200, { resume: store.saveResume(await body(req)) });
     if (path === '/api/portfolio/profile' && method === 'PUT') return json(res, 200, { profile: store.saveProfile(await body(req)) });
     if (path === '/api/portfolio/images' && method === 'POST') return json(res, 201, store.addImage(await bytes(req, 8 * 1024 * 1024)));

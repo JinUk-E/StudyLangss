@@ -26,7 +26,7 @@ const call = (path, options = {}, auth = true) => fetch(base + path, { ...option
 before(async () => {
   directory = await mkdtemp(join(tmpdir(), 'starlight-portfolio-test-'));
   await writeFile(join(directory, 'auth.json'), JSON.stringify(await createCredentials('portfolio-test', 'portfolio-test-only-2026')), { mode: 0o600 });
-  child = spawn(process.execPath, ['portfolio-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'), PORTFOLIO_DATA_DIR: directory, PUSH_DATA_DIR: join(directory, 'push'), PUSH_CONFIG_FILE: join(directory, 'push', 'missing.json'), PORTFOLIO_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['--import', './tests/fixtures/github-visibility.mjs', 'portfolio-server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, AUTH_FILE: join(directory, 'auth.json'), AUTH_USERS_FILE: join(directory, 'accounts.sqlite'), PORTFOLIO_DATA_DIR: directory, PUSH_DATA_DIR: join(directory, 'push'), PUSH_CONFIG_FILE: join(directory, 'push', 'missing.json'), PORTFOLIO_PORT: '0' }, stdio: ['ignore', 'pipe', 'pipe'] });
   base = await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Portfolio startup timed out')), 10000);
     child.once('exit', code => { clearTimeout(timeout); reject(new Error(`Portfolio exited ${code}`)); });
@@ -84,6 +84,25 @@ test('profile editing publishes only validated fields; portfolio data survives r
   const isolated = join(directory, 'persistence'); let store = createPortfolioStore(isolated);
   const project = store.saveProject(fixture()); store.db.close(); store = createPortfolioStore(isolated);
   assert.equal(store.project(project.id).title, fixture().title); store.db.close();
+});
+
+test('private GitHub links are omitted from public and signed-in reading while management preserves originals', async () => {
+  const repository = 'https://www.github.com/Example/private-project.git/';
+  const link = 'https://github.com/example/private-project/releases/latest';
+  const { project } = await (await call('/api/portfolio/projects', { method: 'POST', body: JSON.stringify({ ...fixture(), title: '비공개 소스·공개 소개', published: true, repository, link }) })).json();
+  try {
+    for (const path of ['/api/portfolio/public', '/api/portfolio/resume']) for (const auth of [false, true]) {
+      const response = await call(path, {}, auth); assert.equal(response.status, 200);
+      const text = await response.text(); assert.ok(!text.includes('private-project'));
+      const shown = JSON.parse(text).projects.find(value => value.id === project.id);
+      assert.equal(shown.title, project.title); assert.equal(shown.repository, ''); assert.equal(shown.link, '');
+    }
+    const managed = (await (await call('/api/portfolio/manage')).json()).projects.find(value => value.id === project.id);
+    assert.equal(managed.repository, repository); assert.equal(managed.link, link);
+    const database = new DatabaseSync(join(directory, 'portfolio.sqlite'));
+    try { assert.equal(JSON.parse(database.prepare('SELECT json FROM projects WHERE id=?').get(project.id).json).repository, repository); }
+    finally { database.close(); }
+  } finally { await call(`/api/portfolio/projects/${project.id}`, { method: 'DELETE' }); }
 });
 
 test('baseball is publicly listed in portfolio and resume with its detail route, screenshot and repository', async () => {
