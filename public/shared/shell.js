@@ -31,7 +31,7 @@ function homeMenu(user) {
   if (!isEditor && user?.isAdmin) menus.push(['콘텐츠 편집', '/admin/'], ['계정 관리', '/accounts/'], ['사이트 업데이트', '/admin/system/']);
   for (const [label, href] of menus) {
     const anchor = document.createElement('a'); anchor.href = href; anchor.textContent = label;
-    const active = isEditor ? href.includes(`section=${selected}`) : href === location.pathname || (href === '/portfolio/' && location.pathname.startsWith('/projects/'));
+    const active = isEditor ? href.includes(`section=${selected}`) : href === location.pathname || (href === '/portfolio/' && (location.pathname.startsWith('/projects/') || location.pathname.startsWith('/play/')));
     if (active) anchor.setAttribute('aria-current', 'page'); nav.append(anchor);
   }
   const note = document.createElement('p'); note.className = 'sidebar-bottom'; note.textContent = isEditor ? '변경한 내용은 저장 후 반영됩니다.' : '작은 시도와 꾸준한 기록.';

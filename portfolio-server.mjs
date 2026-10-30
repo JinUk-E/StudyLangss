@@ -13,6 +13,7 @@ import { requireAccess } from './lib/access.mjs';
 import { createSiteUpdater } from './lib/site-update.mjs';
 import { createRuntimeHealth } from './lib/runtime-health.mjs';
 import { sendError } from './lib/error-response.mjs';
+import { webGameForSlug } from './content/web-games.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const runtimeHealth = await createRuntimeHealth(root, 'portfolio');
@@ -26,6 +27,8 @@ const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': '
 const files = new Map([
   ['/', ['index.html', 'text/html']], ['/site/styles.css', ['styles.css', 'text/css']],
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
+  ['/site/web-games.mjs', ['../../content/web-games.mjs', 'text/javascript']],
+  ['/site/play.js', ['play.js', 'text/javascript']], ['/site/play.css', ['play.css', 'text/css']],
   ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],
   ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']],
   ['/accounts/', ['../accounts/index.html', 'text/html']], ['/accounts/app.js', ['../accounts/app.js', 'text/javascript']], ['/accounts/styles.css', ['../accounts/styles.css', 'text/css']],
@@ -78,6 +81,15 @@ const server = createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': image.mime }); return res.end(method === 'HEAD' ? undefined : Buffer.from(image.content));
     }
     let asset = files.get(path);
+    if (read && path.startsWith('/play/')) {
+      const slug = /^\/play\/([a-z0-9-]+)\/?$/.exec(path)?.[1];
+      const game = webGameForSlug(slug);
+      assert(game && store.project(game.projectId)?.published, '공개된 웹 게임을 찾을 수 없습니다.', 404);
+      if (!path.endsWith('/')) { res.writeHead(302, { Location: `/play/${game.slug}/` }); return res.end(); }
+      res.setHeader('Content-Security-Policy', `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; frame-src ${game.url}; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`);
+      res.setHeader('Permissions-Policy', 'fullscreen=(self "https://jinuk-e.github.io"), autoplay=(self "https://jinuk-e.github.io"), camera=(), microphone=(), geolocation=(), payment=()');
+      asset = ['play.html', 'text/html'];
+    }
     if (/^\/projects\/[a-f0-9-]{36}$/.test(path) && read) {
       assert(store.project(path.split('/').pop())?.published, '공개된 프로젝트를 찾을 수 없습니다.', 404);
       asset = files.get('/');

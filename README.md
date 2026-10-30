@@ -27,9 +27,15 @@ UI 개편 내용과 검증 범위는 [검증 기록](docs/ui-refresh/verificatio
 
 더그아웃 소개·이미지 경로·저장소 링크는 [baseball-project.mjs](content/baseball-project.mjs)에 모았습니다. 게임은 기존에 클론된 `JinUk-E/BaseBallLife`를 확인했으며 이 웹사이트에는 소개와 이미지가 포함됩니다.
 
-ProjectF 상세 화면의 **Windows 빌드 다운로드**는 [0.1.0-preview 릴리스](https://github.com/JinUk-E/StudyLangss/releases/tag/projectf-windows-0.1.0-preview) 첨부 파일로 연결됩니다. ZIP은 57,171,233바이트(약 54.5MiB)이며 Git 기록·앱 DB·Mac 웹서버에 넣지 않습니다. 압축을 모두 풀고 `START-HERE.html` 안내에 따라 `ProjectF.exe`를 실행합니다. 빌드와 함께 `.sha256` 검증 파일도 제공합니다.
+ProjectF/제5병기창과 더그아웃은 포트폴리오 카드의 **웹 플레이 가능** 표시와 상세 화면의 **웹에서 플레이** 버튼으로 접근합니다. `/play/projectf/`와 `/play/dugout/`에서 게임 시작·종료·전체화면·조작 안내·새 탭 열기를 제공합니다. 게임 파일은 공개된 GitHub Pages에서 제공하고 별빛공방은 플레이 영역을 구성하므로, Mac에 게임 파일을 복사할 필요가 없습니다.
 
-다운로드 주소·버전·파일 크기·SHA-256은 [projectf-download.mjs](content/projectf-download.mjs)에 기록했습니다. 기존 설치는 포트폴리오 서버 재시작 때 ProjectF의 비어 있는 외부 링크만 한 번 채우고, 직접 입력한 링크·공개 설정·프로젝트 삭제는 보존합니다. 별도 Nginx 다운로드 경로 설정은 필요하지 않습니다.
+플레이 경로·공개 권한·고정 주소 제한·화면 제어는 자동 테스트로 확인했습니다. 현재 작업 환경에서 로컬 브라우저 사용이 꺼져 있어 실제 게임 실행, 저장 파일 가져오기·내보내기, 기기별 전체화면은 아직 확인하지 못했습니다. Mac에 반영한 뒤 사용하는 브라우저에서도 확인해 주세요.
+
+공개 게임 목록과 주소는 [web-games.mjs](content/web-games.mjs)에 고정합니다. 시작 버튼을 누르기 전에는 외부 게임을 불러오지 않습니다. 편집 가능한 링크나 URL 쿼리는 iframe 주소로 사용하지 않으며, 삭제·비공개 프로젝트의 플레이 문서는 서버에서 404 처리합니다. 다른 페이지의 보안 정책은 유지하고 해당 플레이 문서만 자기 게임의 프레임을 허용합니다. 게임이 보이지 않으면 새 탭 열기를 사용할 수 있습니다.
+
+기존 설치는 한 번만 ProjectF의 비어 있거나 기존 공식 ZIP 다운로드인 링크와 더그아웃의 빈 링크를 Pages로 바꿉니다. 직접 편집한 링크·공개 설정·삭제는 보존합니다. 더그아웃 저장은 브라우저와 iframe/새 탭 열기에 따라 달라질 수 있으므로 같은 방식으로 플레이하거나 게임의 저장 내보내기·가져오기를 사용하세요. 별빛공방 계정과 게임 저장을 동기화하지 않습니다.
+
+기존 Windows ZIP은 [0.1.0-preview 릴리스](https://github.com/JinUk-E/StudyLangss/releases/tag/projectf-windows-0.1.0-preview)에 유지합니다. 57,171,233바이트(약 54.5MiB)이며 다운로드·SHA-256 기록은 [projectf-download.mjs](content/projectf-download.mjs)에 있습니다. 웹 게임과 ZIP 모두 Git 기록·앱 DB·Mac 웹서버에 넣지 않습니다.
 
 ## 페이지와 접근 권한
 
@@ -37,6 +43,7 @@ ProjectF 상세 화면의 **Windows 빌드 다운로드**는 [0.1.0-preview 릴�
 |---|---|---|
 | `/` · `/portfolio/` | 소개·공개 포트폴리오 | 누구나 |
 | `/projects/<ID>` | 공개 프로젝트 상세 | 누구나 |
+| `/play/projectf/` · `/play/dugout/` | 공개 웹 게임 플레이 화면 | 해당 프로젝트가 공개일 때 누구나 |
 | `/resume/` | 이력서·인쇄/PDF 저장 | 전체 공개, 로그인 없이 열람 |
 | `/admin/` | 소개·프로젝트·이력서 편집 | 관리자 |
 | `/accounts/` | 계정 추가·권한·중지·비밀번호 재설정 | 관리자 |

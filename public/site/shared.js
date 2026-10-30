@@ -1,3 +1,4 @@
+import { webGameForProject, webPlayPath } from './web-games.mjs';
 export const $ = selector => document.querySelector(selector);
 export function el(tag, text, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; }
 export async function api(path, options = {}) {
@@ -14,6 +15,13 @@ export function image(path, alt, className = '') { const node = el('img', undefi
 export function projectDetails(project) {
   const fragment = document.createDocumentFragment();
   fragment.append(el('p', project.category, 'eyebrow'), el('h2', project.title), el('p', project.summary, 'detail-summary'));
+  const game = webGameForProject(project.id);
+  if (game) {
+    const play = el('div', undefined, 'project-play-callout');
+    const heading = el('div'); heading.append(el('strong', '설치 없이, 이곳에서 플레이'), el('p', `${game.title} · ${game.device}`));
+    const open = el('a', '웹에서 플레이 →', 'button dark'); open.href = webPlayPath(game);
+    play.append(heading, open, external('새 탭에서 열기 ↗', game.url, 'text-link')); fragment.append(play);
+  }
   const metadata = el('div', undefined, 'detail-meta');
   for (const [label, value] of [['기간', project.year], ['역할', project.role], ['기술', project.tags.join(' · ')]]) if (value) { const row = el('div'); row.append(el('small', label), el('span', value)); metadata.append(row); }
   fragment.append(metadata);
@@ -22,7 +30,7 @@ export function projectDetails(project) {
   const links = el('div', undefined, 'detail-links');
   const downloadPath = project.link ? new URL(project.link).pathname : '';
   const zip = /\.zip$/i.test(downloadPath);
-  if (project.link) {
+  if (project.link && project.link !== game?.url) {
     let label = '프로젝트 방문 ↗';
     if (zip) label = /-windows-/i.test(downloadPath) ? 'Windows 빌드 다운로드 (.zip) ↗' : '빌드 다운로드 (.zip) ↗';
     links.append(external(label, project.link, 'button dark'));

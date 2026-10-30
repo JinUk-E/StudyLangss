@@ -1,3 +1,4 @@
+import { webGameForSlug } from './web-games.mjs';
 export const baseballProject = {
   "id": "8d47aa00-2000-4000-8000-000000000005",
   "title": "더그아웃 · 야구인생게임",
@@ -15,7 +16,7 @@ export const baseballProject = {
     "규칙 테스트"
   ],
   "repository": "https://github.com/JinUk-E/BaseBallLife",
-  "link": "",
+  "link": webGameForSlug('dugout').url,
   "cover": "/media/8d47aa00-3000-4000-8000-000000000019.png",
   "gallery": [],
   "published": true,

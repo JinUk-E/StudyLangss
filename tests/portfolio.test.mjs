@@ -15,6 +15,7 @@ import previousProjects from '../content/portfolio-projects-v1.json' with { type
 import { refreshedAssets, projectRefresh } from '../content/portfolio-latest.mjs';
 import { baseballProject, baseballAsset } from '../content/baseball-project.mjs';
 import { projectFDownload } from '../content/projectf-download.mjs';
+import { webGames, webPlayPath } from '../content/web-games.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -402,4 +403,65 @@ test('ProjectF link and marker roll back together when the download migration fa
 test('shared navigation assets and portfolio routes are served on the public site', async () => {
   for (const path of ['/shared/shell.css', '/shared/shell.js', '/portfolio/', '/site/editorial.css', '/site/resume.js']) assert.equal((await call(path, {}, false)).status, 200, path);
   const html = await (await call('/')).text(); assert.match(html, /data-section="home"/); assert.match(html, /href="\/resume\/"/);
+});
+
+test('published web games have public player documents with a per-game frame policy and safe canonical routes', async () => {
+  for (const game of webGames) {
+    const response = await call(webPlayPath(game) + '?url=https://untrusted.invalid/', {}, false);
+    assert.equal(response.status, 200); assert.match(response.headers.get('content-type'), /text\/html/);
+    const csp = response.headers.get('content-security-policy');
+    assert.ok(csp.includes(`frame-src ${game.url};`)); assert.ok(!csp.includes('frame-src *'));
+    assert.match(csp, /frame-ancestors 'none'/); assert.equal(response.headers.get('x-frame-options'), 'DENY');
+    const html = await response.text(); assert.doesNotMatch(html, /untrusted\.invalid|<iframe/);
+    assert.match(html, /이 페이지에서 플레이/); assert.match(html, /새 탭에서 열기/);
+    const head = await call(webPlayPath(game), { method: 'HEAD' }, false); assert.equal(head.status, 200); assert.equal(await head.text(), '');
+    const canonical = await call(webPlayPath(game).slice(0, -1), { redirect: 'manual' }, false);
+    assert.equal(canonical.status, 302); assert.equal(canonical.headers.get('location'), webPlayPath(game));
+  }
+  const normal = await call('/', {}, false); assert.ok(!normal.headers.get('content-security-policy').includes('frame-src https:'));
+  for (const path of ['/play/projectrun/', '/play/projectm/', '/play/not-a-game/', '/play/%2funknown/', '/site/play.html']) assert.equal((await call(path, {}, false)).status, 404, path);
+  for (const path of ['/site/play.js', '/site/play.css', '/site/web-games.mjs']) assert.equal((await call(path, {}, false)).status, 200);
+});
+
+test('private and deleted projects cannot be opened through the public player route', async () => {
+  const managed = await (await call('/api/portfolio/manage')).json();
+  for (const game of webGames) {
+    const project = managed.projects.find(project => project.id === game.projectId);
+    try {
+      const saved = await call(`/api/portfolio/projects/${game.projectId}`, { method: 'PUT', body: JSON.stringify({ ...project, published: false }) }); assert.equal(saved.status, 200);
+      const denied = await call(webPlayPath(game), { headers: { Accept: 'text/html' } }, false);
+      assert.equal(denied.status, 404); assert.doesNotMatch(await denied.text(), /<iframe|game-frame-slot/);
+      const publicData = await (await call('/api/portfolio/public', {}, false)).json(); assert.ok(!publicData.projects.some(project => project.id === game.projectId));
+    } finally { await call(`/api/portfolio/projects/${game.projectId}`, { method: 'PUT', body: JSON.stringify(project) }); }
+  }
+  const isolated = join(directory, 'deleted-web-game'); let store = createPortfolioStore(isolated);
+  store.remove(webGames[0].projectId); store.db.prepare('DELETE FROM migrations WHERE id=?').run('web-play-20261030-v1');
+  store.db.close(); store = createPortfolioStore(isolated); assert.equal(store.project(webGames[0].projectId), undefined); store.db.close();
+});
+
+test('web game migration replaces only generated download or empty links once and preserves custom copy and privacy', () => {
+  const isolated = join(directory, 'web-game-links'); let store = createPortfolioStore(isolated);
+  const f = store.project(webGames[0].projectId), dugout = store.project(webGames[1].projectId);
+  store.saveProject({ ...f, link: projectFDownload.url, summary: '수동 소개', published: false }, f.id);
+  store.saveProject({ ...dugout, link: '' }, dugout.id);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('web-play-20261030-v1');
+  store.db.close(); store = createPortfolioStore(isolated);
+  for (const game of webGames) assert.equal(store.project(game.projectId).link, game.url);
+  assert.equal(store.project(f.id).summary, '수동 소개'); assert.equal(store.project(f.id).published, false);
+  store.saveProject({ ...store.project(f.id), link: 'https://example.com/custom' }, f.id);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('web-play-20261030-v1');
+  store.db.close(); store = createPortfolioStore(isolated); assert.equal(store.project(f.id).link, 'https://example.com/custom'); store.db.close();
+});
+
+test('web game migration rolls back both links if its marker cannot be saved', () => {
+  const isolated = join(directory, 'web-game-rollback'); let store = createPortfolioStore(isolated);
+  for (const game of webGames) store.saveProject({ ...store.project(game.projectId), link: '' }, game.projectId);
+  store.db.prepare('DELETE FROM migrations WHERE id=?').run('web-play-20261030-v1');
+  store.db.exec("CREATE TRIGGER fail_web_marker BEFORE INSERT ON migrations WHEN NEW.id='web-play-20261030-v1' BEGIN SELECT RAISE(ABORT, 'injected web game failure'); END");
+  store.db.close(); assert.throws(() => createPortfolioStore(isolated), /injected web game failure/);
+  const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
+  for (const game of webGames) assert.equal(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(game.projectId).json).link, '');
+  assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('web-play-20261030-v1'), undefined);
+  db.exec('DROP TRIGGER fail_web_marker'); db.close();
+  store = createPortfolioStore(isolated); for (const game of webGames) assert.equal(store.project(game.projectId).link, game.url); store.db.close();
 });

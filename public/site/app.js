@@ -1,10 +1,12 @@
 import { $, el, api, external, image, projectDetails } from './shared.js';
+import { webGameForProject } from './web-games.mjs';
 let projects = [], category = '전체';
 function projectCard(project, index, spotlight = false) {
   const card = el('a', undefined, `project-card${project.cover ? ' has-cover' : ''}${spotlight ? ' spotlight-card' : ''}`); card.href = `/projects/${project.id}`;
   const art = el('div', undefined, `project-cover tone-${index % 3}`);
   if (project.cover) { const cover = image(project.cover, `${project.title} 프로젝트 화면`); if (spotlight) cover.loading = 'eager'; art.append(cover); }
   else art.append(el('span', project.title, 'cover-title'), el('span', project.category, 'cover-caption'));
+  if (webGameForProject(project.id)) art.append(el('span', '● 웹 플레이 가능', 'project-web-badge'));
   const content = el('div', undefined, 'project-content');
   const meta = el('div', undefined, 'project-meta'); meta.append(el('span', spotlight && project.featured ? '대표 프로젝트' : project.category), el('span', project.year));
   const heading = el('div', undefined, 'project-heading'); const arrow = el('span', '↗', 'project-arrow'); arrow.setAttribute('aria-hidden', 'true'); heading.append(el(spotlight ? 'h2' : 'h3', project.title), arrow);

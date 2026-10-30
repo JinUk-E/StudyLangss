@@ -2,8 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
+import { webGames, webGameForProject, webPlayPath } from '../content/web-games.mjs';
 
-const load = async name => (await readFile(new URL(`../public/site/${name}.js`, import.meta.url), 'utf8')).replace(/^\uFEFF?import[^\n]*\n/, '');
+const load = async name => (await readFile(new URL(`../public/site/${name}.js`, import.meta.url), 'utf8')).replace(/^\uFEFF?import[^\n]*\n/gm, '');
 const appSource = await load('app'), resumeSource = await load('resume');
 class Element {
   children = []; attributes = {}; className = ''; hidden = false; open = false; _text = '';
@@ -28,7 +29,7 @@ async function page(source, data, pathname = '/') {
   const el = (tag, text, className = '') => { const result = new Element(tag); if (text !== undefined) result.textContent = text; result.className = className; return result; };
   node('#work-title').append(el('text', '만들어 온 것들 '));
   const location = { pathname }, history = { pushState(_, __, href) { changes.push(href); location.pathname = new URL(href, 'https://fixture.test').pathname; }, replaceState(_, __, href) { changes.push(href); location.pathname = new URL(href, 'https://fixture.test').pathname; } };
-  const context = vm.createContext({ $: node, el, api: async () => data, external: (label, href, className) => { const link = el('a', label, className); link.href = href; return link; }, image: (src, alt) => { const img = el('img'); img.src = src; img.alt = alt; return img; }, projectDetails: value => el('div', value.title), document, location, history, window: { addEventListener: (type, handler) => { events[type] = handler; }, print() { changes.push('print'); } } });
+  const context = vm.createContext({ webGameForProject, webPlayPath, $: node, el, api: async () => data, external: (label, href, className) => { const link = el('a', label, className); link.href = href; return link; }, image: (src, alt) => { const img = el('img'); img.src = src; img.alt = alt; return img; }, projectDetails: value => el('div', value.title), document, location, history, window: { addEventListener: (type, handler) => { events[type] = handler; }, print() { changes.push('print'); } } });
   await vm.runInContext(`(async () => {${source}\n})()`, context);
   return { node, changes, events, location, document };
 }
@@ -79,11 +80,28 @@ test('empty optional resume columns collapse without adding fabricated experienc
 
 test('project details offer the Windows ZIP as a download while preserving normal website links and safe new-tab behavior', async () => {
   const source = (await load('shared')).replace(/^export /gm, '');
-  const context = vm.createContext({ URL, document: { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment') } });
+  const context = vm.createContext({ URL, webGameForProject, webPlayPath, document: { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment') } });
   vm.runInContext(`${source}\nthis.details = projectDetails;`, context);
   const value = { ...project('f'), description: '실제 게임 설명', role: '개발', gallery: [], link: 'https://github.com/JinUk-E/StudyLangss/releases/download/projectf-windows-0.1.0-preview/ProjectF-Windows-0.1.0-preview.zip' };
   const details = context.details(value), anchor = details.querySelector('a');
   assert.match(anchor.textContent, /Windows 빌드 다운로드/); assert.equal(anchor.href, value.link);
   assert.equal(anchor.target, '_blank'); assert.equal(anchor.rel, 'noopener noreferrer'); assert.match(details.textContent, /ZIP을 모두 푼 뒤/);
   assert.equal(context.details({ ...value, link: 'https://example.com/project' }).querySelector('a').textContent, '프로젝트 방문 ↗');
+});
+
+test('verified games have a play badge and an internal player action while ordinary projects keep their existing flow', async () => {
+  const projects = [...webGames.map(game => project(game.projectId)), project('not-published-as-web')];
+  const p = await page(appSource, { profile, projects });
+  assert.equal(p.node('#projects').querySelectorAll('.project-web-badge').length, 2);
+  const source = (await load('shared')).replace(/^export /gm, '');
+  const context = vm.createContext({ URL, webGameForProject, webPlayPath, document: { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment') } });
+  vm.runInContext(`${source}\nthis.details = projectDetails;`, context);
+  for (const game of webGames) {
+    const details = context.details({ ...project(game.projectId), description: '원래 소개', gallery: [], link: 'https://example.com/owner-link' });
+    const play = details.querySelector('.project-play-callout'); assert.ok(play);
+    assert.equal(play.querySelector('a').href, webPlayPath(game));
+    assert.equal(play.querySelectorAll('a')[1].href, game.url); assert.equal(play.querySelectorAll('a')[1].rel, 'noopener noreferrer');
+    assert.ok(details.querySelectorAll('a').some(link => link.href === 'https://example.com/owner-link'));
+  }
+  assert.equal(context.details({ ...project('ordinary'), description: '', gallery: [], link: '' }).querySelector('.project-play-callout'), null);
 });

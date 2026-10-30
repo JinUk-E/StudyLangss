@@ -1,5 +1,5 @@
 // Actual project captures, reviewed 2026-10-23. No generated game mockups.
-import { projectFDownload } from './projectf-download.mjs';
+import { webGameForSlug } from './web-games.mjs';
 export const refreshedAssets = [
   ['p-main-1.1.1.jpg', '000000000006.jpg'],
   ['p-play-1.1.1.jpg', '000000000007.jpg'],
@@ -24,7 +24,7 @@ export const projectRefresh = {
     cover: asset('p-main-1.1.1.jpg'), gallery: [asset('p-play-1.1.1.jpg')]
   },
   '8d47aa00-2000-4000-8000-000000000002': {
-    link: projectFDownload.url,
+    link: webGameForSlug('projectf').url,
     role: '전투 상태·탄착 처리 · 한글 전투 UI · 전차 선택과 외형 연동',
     summary: '지형과 바람을 읽고 포격하는 3D 전술 게임. 한글 격납고·전투 HUD와 중장갑 전차 선택까지 연결한 프로토타입입니다.',
     description: '전차와 탄종을 고른 뒤 지형·바람·포신 각도·발사 위력을 조절해 전투를 진행하는 3D 전술 포격 프로토타입입니다. AI 대전과 같은 PC에서 번갈아 조작하는 로컬 2인 대전을 구성했습니다.\n\n격납고에는 실제 3D 전차 미리보기와 역할·무장 안내를 배치했습니다. 전투 화면은 체력·턴·바람을 위쪽에, 탄종·각도·위력·발사 조작을 아래 패널에 모았습니다. UI 버튼과 키보드는 같은 전투 API를 사용하며 일시정지·탄 비행·AI 조작 중에는 입력을 제한합니다.\n\n중장갑 전차는 기존 주력 전차의 성능을 유지하는 외형 파생형입니다. Blender에서 만든 외형을 선택 화면·전투·포신 조준·발사 반동에 연결했습니다.\n\n높이 배열을 기준으로 지형을 관리하고 탄착 기록과 월드 상태 변경을 분리했습니다. 비행이 끝난 뒤 피해·크레이터·탱크 정착·승패를 순서대로 반영합니다. Unity 버전별 투사체 패키지 호환성도 점검했습니다.\n\n소개 화면은 2026-10-21 저장된 실제 격납고·전투 캡처입니다.',
