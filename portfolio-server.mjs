@@ -31,6 +31,7 @@ const files = new Map([
   ['/', ['index.html', 'text/html']], ['/site/styles.css', ['styles.css', 'text/css']],
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
   ['/site/web-games.mjs', ['../../content/web-games.mjs', 'text/javascript']],
+  ['/site/portfolio-groups.mjs', ['../../content/portfolio-groups.mjs', 'text/javascript']],
   ['/site/play.js', ['play.js', 'text/javascript']], ['/site/play.css', ['play.css', 'text/css']],
   ['/site/assets/starlight-glass-star.png', ['assets/starlight-glass-star.png', 'image/png']],
   ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],

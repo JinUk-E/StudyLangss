@@ -1,4 +1,5 @@
 import { $, el, api, image, projectDetails } from './shared.js';
+import { portfolioGroups, projectGroup } from './portfolio-groups.mjs';
 let projects = [], editing = null, cover = '', gallery = [], uploading = false, saving = false, dirty = false;
 const status = text => { $('#status').textContent = text; };
 function lock(value) { saving = value; for (const fieldset of document.querySelectorAll('fieldset')) fieldset.disabled = value; for (const node of document.querySelectorAll('#new-project, #cancel-edit, #load-career-resume, .project-edit, .project-delete')) node.disabled = value; }
@@ -17,7 +18,8 @@ function renderList() {
   if (!projects.length) { $('#project-list').append(el('p', '아직 프로젝트가 없습니다. 첫 작업을 등록해 보세요.', 'muted')); return; }
   for (const project of projects) {
     const row = el('div', undefined, 'admin-project');
-    const label = el('div'); label.append(el('strong', project.title), el('small', `${project.published ? '공개 중' : '비공개 초안'} · ${project.category}${project.featured ? ' · 대표작' : ''}`));
+    const groupLabel = portfolioGroups.find(group => group.id === projectGroup(project)).label;
+    const label = el('div'); label.append(el('strong', project.title), el('small', `${project.published ? '공개 중' : '비공개 초안'} · ${groupLabel} · ${project.category}${project.featured ? ' · 대표작' : ''}`));
     const controls = el('div', undefined, 'row-actions'), edit = el('button', '수정', 'button light project-edit'), remove = el('button', '삭제', 'button quiet project-delete');
     edit.onclick = () => openEditor(project); remove.onclick = async () => {
       if (saving || !confirm(`‘${project.title}’ 프로젝트를 삭제할까요?`)) return;
@@ -33,6 +35,7 @@ function openEditor(project = null) {
   const form = $('#project-form'); form.reset();
   const values = project || { title: '', category: 'PROJECT', year: '', summary: '', description: '', role: '', tags: [], link: '', repository: '', order: 0, published: true, featured: false };
   for (const name of ['title', 'category', 'year', 'summary', 'description', 'role', 'link', 'repository', 'order']) form.elements[name].value = values[name];
+  form.elements.group.value = projectGroup(values);
   form.elements.tags.value = values.tags.join(', '); form.elements.published.checked = values.published; form.elements.featured.checked = values.featured;
   $('#editor-title').textContent = project ? '프로젝트 수정' : '새 프로젝트'; $('#editor').hidden = false; dirty = false; previews(); $('#editor').scrollIntoView({ behavior: 'smooth', block: 'start' }); form.elements.title.focus();
 }

@@ -4,7 +4,7 @@ map_hash_bucket_size 64;
 # Keep a separate, bounded budget; do not exempt arbitrary *.js API paths.
 map $uri $starlight_dynamic_key {
     default $binary_remote_addr;
-    ~^/site/(?:styles\.css|editorial\.css|app\.js|shared\.js|resume\.js|play\.css|play\.js|web-games\.mjs)$ "";
+    ~^/site/(?:styles\.css|editorial\.css|app\.js|shared\.js|resume\.js|play\.css|play\.js|web-games\.mjs|portfolio-groups\.mjs)$ "";
     ~^/shared/shell\.(?:css|js)$ "";
     ~^/pwa/(?:register\.js|app\.js|styles\.css|icon\.svg|icon-192\.png|icon-512\.png|apple-touch-icon\.png)$ "";
     /pwa/starlight-mark.png "";

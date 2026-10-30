@@ -16,6 +16,7 @@ import { refreshedAssets, projectRefresh } from '../content/portfolio-latest.mjs
 import { baseballProject, baseballAsset } from '../content/baseball-project.mjs';
 import { projectFDownload } from '../content/projectf-download.mjs';
 import { webGames, webPlayPath } from '../content/web-games.mjs';
+import { projectGroup } from '../content/portfolio-groups.mjs';
 
 let directory, child, base;
 const authorization = `Basic ${Buffer.from('portfolio-test:portfolio-test-only-2026').toString('base64')}`;
@@ -96,6 +97,31 @@ test('home glass artwork is a public PNG while arbitrary asset paths stay unavai
   const head = await call(path, { method: 'HEAD' }, false);
   assert.equal(head.status, 200); assert.equal(head.headers.get('content-type'), 'image/png'); assert.equal(await head.text(), '');
   assert.equal((await call('/site/assets/missing.png', {}, false)).status, 404);
+});
+
+test('group selection preserves legacy genre, old-client updates, visibility and stored choices after restart', async () => {
+  for (const group of ['unknown', '', null, 7]) assert.equal((await call('/api/portfolio/projects', { method: 'POST', body: JSON.stringify({ ...fixture(), group }) })).status, 400);
+  const created = await (await call('/api/portfolio/projects', { method: 'POST', body: JSON.stringify({ ...fixture(), group: 'games', category: '직접 쓴 장르', order: 41, published: true }) })).json();
+  const id = created.project.id;
+  try {
+    const oldClient = { ...created.project, title: '옛 편집기에서 바꾼 제목' }; delete oldClient.group;
+    const updated = await (await call(`/api/portfolio/projects/${id}`, { method: 'PUT', body: JSON.stringify(oldClient) })).json();
+    assert.equal(updated.project.group, 'games'); assert.equal(updated.project.category, '직접 쓴 장르'); assert.equal(updated.project.order, 41); assert.equal(updated.project.published, true);
+    const explicit = await (await call(`/api/portfolio/projects/${id}`, { method: 'PUT', body: JSON.stringify({ ...updated.project, group: 'tools', published: false }) })).json();
+    assert.equal(explicit.project.group, 'tools'); assert.equal(explicit.project.category, '직접 쓴 장르');
+    assert.ok(!(await (await call('/api/portfolio/public', {}, false)).json()).projects.some(value => value.id === id));
+  } finally { await call(`/api/portfolio/projects/${id}`, { method: 'DELETE' }); }
+  const isolated = join(directory, 'groups'); let store = createPortfolioStore(isolated);
+  const counts = store.projects().reduce((value, project) => { const group = projectGroup(project); value[group] = (value[group] || 0) + 1; return value; }, {});
+  assert.deepEqual(counts, { games: 5, learning: 1, tools: 1, web: 1 });
+  const legacy = store.projects().find(value => value.id === webGames[0].projectId);
+  assert.equal(legacy.group, undefined); assert.equal(projectGroup(legacy), 'games');
+  store.saveProject({ ...legacy, group: 'web', title: '수동으로 분류한 작품' }, legacy.id); store.db.close();
+  store = createPortfolioStore(isolated);
+  assert.equal(store.project(legacy.id).group, 'web'); assert.equal(store.project(legacy.id).title, '수동으로 분류한 작품');
+  assert.equal(store.project(legacy.id).category, legacy.category); assert.equal(store.project(legacy.id).order, legacy.order);
+  assert.equal(projectGroup({ id: 'constructor' }), 'other'); assert.equal(projectGroup({ id: 'new-mac-work' }), 'other');
+  store.db.close();
 });
 
 test('private GitHub links are omitted from public and signed-in reading while management preserves originals', async () => {
@@ -432,7 +458,7 @@ test('ProjectF link and marker roll back together when the download migration fa
 });
 
 test('shared navigation assets and portfolio routes are served on the public site', async () => {
-  for (const path of ['/shared/shell.css', '/shared/shell.js', '/portfolio/', '/site/editorial.css', '/site/resume.js']) assert.equal((await call(path, {}, false)).status, 200, path);
+  for (const path of ['/shared/shell.css', '/shared/shell.js', '/portfolio/', '/site/editorial.css', '/site/resume.js', '/site/portfolio-groups.mjs']) assert.equal((await call(path, {}, false)).status, 200, path);
   const html = await (await call('/')).text(); assert.match(html, /data-section="home"/); assert.match(html, /href="\/resume\/"/);
 });
 

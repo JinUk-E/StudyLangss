@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { webGames, webGameForProject, webPlayPath } from '../content/web-games.mjs';
+import { portfolioGroups, projectGroup } from '../content/portfolio-groups.mjs';
 
 const load = async name => (await readFile(new URL(`../public/site/${name}.js`, import.meta.url), 'utf8')).replace(/^\uFEFF?import[^\n]*\n/gm, '');
 const appSource = await load('app'), resumeSource = await load('resume');
@@ -15,6 +16,8 @@ class Element {
   addEventListener(name, handler) { this[`on${name}`] = handler; }
   showModal() { this.open = true; }
   close() { this.open = false; }
+  focus() { this.focused = true; }
+  scrollIntoView() {}
   set textContent(value) { this._text = String(value); this.children = []; }
   get textContent() { return this._text + this.children.map(child => child.textContent).join(''); }
   get firstChild() { return this.children[0]; }
@@ -22,29 +25,29 @@ class Element {
   querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
 }
 const profile = { name: '사용자 이름', tagline: '직접 입력한 소개', intro: '사용하며 다듬는 도구', bio: '본문 <script>는 글자입니다.', role: '개발자', email: 'owner@example.com', githubUrl: 'https://github.com/example', contactUrl: '' };
-const project = (id, patch = {}) => ({ id, title: `프로젝트 ${id}`, category: '웹', summary: '실제 프로젝트 소개', year: '2026', tags: ['JavaScript'], cover: '', featured: false, ...patch });
+const project = (id, patch = {}) => ({ id, title: `프로젝트 ${id}`, category: '웹', summary: '실제 프로젝트 소개', year: '2026', tags: ['JavaScript'], cover: '', featured: false, published: true, ...patch });
 async function page(source, data, pathname = '/') {
   const nodes = new Map(), events = {}, changes = [], document = { title: '', querySelectorAll: () => [] };
   const node = selector => { if (!nodes.has(selector)) nodes.set(selector, new Element()); return nodes.get(selector); };
   const el = (tag, text, className = '') => { const result = new Element(tag); if (text !== undefined) result.textContent = text; result.className = className; return result; };
   node('#work-title').append(el('text', '만들어 온 것들 '));
   const location = { pathname }, history = { pushState(_, __, href) { changes.push(href); location.pathname = new URL(href, 'https://fixture.test').pathname; }, replaceState(_, __, href) { changes.push(href); location.pathname = new URL(href, 'https://fixture.test').pathname; } };
-  const context = vm.createContext({ webGameForProject, webPlayPath, $: node, el, api: async () => data, external: (label, href, className) => { const link = el('a', label, className); link.href = href; return link; }, image: (src, alt) => { const img = el('img'); img.src = src; img.alt = alt; return img; }, projectDetails: value => el('div', value.title), document, location, history, window: { addEventListener: (type, handler) => { events[type] = handler; }, print() { changes.push('print'); } } });
+  const context = vm.createContext({ portfolioGroups, projectGroup, webGameForProject, webPlayPath, $: node, el, api: async () => data, external: (label, href, className) => { const link = el('a', label, className); link.href = href; return link; }, image: (src, alt) => { const img = el('img'); img.src = src; img.alt = alt; return img; }, projectDetails: value => el('div', value.title), document, location, history, window: { addEventListener: (type, handler) => { events[type] = handler; }, print() { changes.push('print'); } } });
   await vm.runInContext(`(async () => {${source}\n})()`, context);
   return { node, changes, events, location, document };
 }
 
 test('home spotlight prefers an actual featured cover while all projects, filters and modal links remain available', async () => {
-  const projects = [project('a', { cover: '/media/a.png' }), project('b', { cover: '/media/b.png', featured: true }), project('c', { category: '게임' })];
+  const projects = [project('a', { cover: '/media/a.png', group: 'web' }), project('b', { cover: '/media/b.png', featured: true, group: 'web' }), project('c', { category: '전술 포격', group: 'games' })];
   const p = await page(appSource, { profile, projects });
   assert.equal(p.node('#spotlight-project').children[0].href, '/projects/b');
   assert.equal(p.node('#spotlight-project').querySelector('img').src, '/media/b.png');
-  assert.equal(p.node('#projects').children.length, 3); assert.equal(p.node('#work-count').textContent, '03');
+  assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 3); assert.equal(p.node('#work-count').textContent, '03');
   assert.equal(p.node('#intro-github').querySelector('a').href, profile.githubUrl);
   assert.equal(p.node('#bio').textContent, profile.bio);
-  const filters = p.node('#filters').children; assert.equal(filters.length, 3); filters[2].onclick();
-  assert.equal(p.node('#projects').children.length, 1); assert.equal(p.node('#projects').children[0].href, '/projects/c');
-  const card = p.node('#projects').children[0]; let prevented = false;
+  const filters = p.node('#filters').children; assert.equal(filters.length, 3); filters[1].onclick();
+  assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 1);
+  const card = p.node('#projects').querySelector('.project-card'); assert.equal(card.href, '/projects/c'); let prevented = false;
   card.onclick({ ctrlKey: true, preventDefault() { prevented = true; } }); assert.equal(prevented, false); assert.equal(p.changes.length, 0);
   card.onclick({ preventDefault() { prevented = true; } }); assert.equal(prevented, true); assert.equal(p.node('#project-dialog').open, true); assert.equal(p.location.pathname, '/projects/c');
   p.node('#close-detail').onclick(); assert.equal(p.node('#project-dialog').open, false); assert.equal(p.location.pathname, '/');
@@ -56,6 +59,47 @@ test('direct project routes retain portfolio context and do not expose an invent
   assert.equal(p.node('#intro').hidden, true); assert.equal(p.node('#about').hidden, true); assert.equal(p.node('#project-dialog').open, true);
   assert.equal(p.node('#spotlight-project').children.length, 0); assert.equal(p.node('#intro-github').children.length, 0);
   p.node('#close-detail').onclick(); assert.equal(p.location.pathname, '/portfolio/');
+});
+
+test('public group counts, unclassified projects, load-more focus and group state survive detail navigation', async () => {
+  const projects = [
+    ...Array.from({ length: 7 }, (_, index) => project(`game-${index}`, { group: 'games' })),
+    project('8d47aa00-1000-4000-8000-000000000001', { title: '바뀐 학습 이름', category: '직접 쓴 장르' }),
+    project('page', { group: 'web' }), project('unclassified'),
+    project('private', { group: 'tools', published: false, title: '비공개 도구 이름' })
+  ];
+  const p = await page(appSource, { profile, projects }, '/portfolio/');
+  const filters = p.node('#filters').children;
+  assert.deepEqual(filters.map(button => button.textContent), ['전체 10', '게임 7', '학습 1', '웹페이지 1', '기타 1']);
+  assert.equal(p.node('#work-count').textContent, '10'); assert.ok(!p.node('#projects').textContent.includes('비공개 도구 이름'));
+  assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 9);
+  filters[1].onclick();
+  assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 6);
+  p.node('#projects').querySelector('.work-more').onclick();
+  const cards = p.node('#projects').querySelectorAll('.project-card');
+  assert.deepEqual(cards.map(card => card.href), projects.slice(0, 7).map(item => `/projects/${item.id}`));
+  assert.equal(cards[6].focused, true); assert.equal(p.node('#projects').querySelector('.work-more'), null);
+  filters[4].onclick(); assert.equal(p.node('#projects').querySelector('.project-card').href, '/projects/unclassified');
+  filters[1].onclick(); assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 7);
+  p.node('#projects').querySelector('.project-card').onclick({ preventDefault() {} });
+  assert.equal(p.node('#project-dialog').open, true);
+  p.location.pathname = '/portfolio/'; p.events.popstate(); assert.equal(p.node('#project-dialog').open, false);
+  assert.equal(p.node('#projects').querySelectorAll('.project-card').length, 7);
+  filters[2].onclick(); assert.ok(p.node('#projects').textContent.includes('바뀐 학습 이름'));
+});
+
+test('editor chooses the legacy group independently of genre and submits an explicit owner selection', async () => {
+  const source = (await load('admin')).split("$('#new-project').onclick")[0];
+  const nodes = new Map(), node = selector => { if (!nodes.has(selector)) nodes.set(selector, new Element()); return nodes.get(selector); };
+  const form = node('#project-form'); form.reset = () => {};
+  form.elements = Object.fromEntries(['title', 'category', 'year', 'summary', 'description', 'role', 'link', 'repository', 'order', 'tags', 'published', 'featured', 'group'].map(name => [name, new Element('input')]));
+  const context = vm.createContext({ $: node, portfolioGroups, projectGroup, el: (tag, text) => { const value = new Element(tag); if (text !== undefined) value.textContent = text; return value; }, FormData: class { constructor(value) { this.entries = Object.entries(value.elements).map(([key, field]) => [key, field.value]); } [Symbol.iterator]() { return this.entries[Symbol.iterator](); } } });
+  vm.runInContext(`${source}\nthis.edit = openEditor; this.value = projectValue;`, context);
+  context.edit({ ...project(webGames[0].projectId), description: '', role: '', gallery: [], link: '', repository: '', order: 2, category: '직접 입력한 세부 장르' });
+  assert.equal(form.elements.group.value, 'games'); assert.equal(form.elements.category.value, '직접 입력한 세부 장르');
+  form.elements.group.value = 'tools';
+  const value = context.value(); assert.equal(value.group, 'tools'); assert.equal(value.category, '직접 입력한 세부 장르');
+  context.edit(); assert.equal(form.elements.group.value, 'other');
 });
 
 test('resume preserves plain paragraphs, renders only bullet lines as safe semantic lists, and retains private notice and links', async () => {
