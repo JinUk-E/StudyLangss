@@ -1,5 +1,5 @@
-/* Shared workspace: airy surfaces, soft bento cards and a quiet teal accent. */
-:root{--workspace-paper:#f6f8fa;--workspace-surface:#fff;--workspace-ink:#172b32;--workspace-muted:#62757e;--workspace-line:#dfe8e9;--workspace-accent:#0f766e;--workspace-accent-soft:#e6f4ef;--workspace-warm:#fff0de;--workspace-radius:24px;--workspace-shadow:0 10px 35px #1f445008;--header-height:88px;--sidebar-width:240px;--paper:var(--workspace-paper);--ink:var(--workspace-ink);--muted:var(--workspace-muted);--line:var(--workspace-line);--accent:var(--workspace-accent);color-scheme:light}
+/* Pastel starlight: opaque fallbacks keep the glass surfaces readable. */
+:root{--workspace-paper:#fcf8f4;--workspace-surface:#fffdfbed;--workspace-ink:#30273e;--workspace-muted:#73667e;--workspace-line:#e8dfe9;--workspace-accent:#76558f;--workspace-accent-soft:#f0e7f6;--workspace-warm:#fff0e8;--workspace-radius:24px;--workspace-shadow:0 12px 38px #6e497b09,0 1px 3px #6e497b06;--workspace-display:Georgia,"AppleMyungjo","Batang",serif;--header-height:88px;--sidebar-width:240px;--paper:var(--workspace-paper);--ink:var(--workspace-ink);--muted:var(--workspace-muted);--line:var(--workspace-line);--accent:var(--workspace-accent);color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--workspace-paper);color:var(--workspace-ink);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
 [hidden]{display:none!important}
@@ -172,3 +172,50 @@ body:not([data-account-study=true]) [data-section-tab=study],body:not([data-acco
 body[data-section=study] .topbar{flex-wrap:wrap;gap:12px}
 .study-language{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;font-size:13px;color:var(--workspace-muted)}
 .study-language select{min-height:40px;min-width:96px;border:1px solid var(--workspace-line);border-radius:10px;background:white;color:var(--workspace-ink);padding:6px 10px}
+
+/* Approved pastel starlight finish. Layout and permission rules stay independent. */
+body{background-color:var(--workspace-paper);background-image:radial-gradient(ellipse at 85% 8%,#e8ddf5a6,transparent 45%),radial-gradient(ellipse at 8% 55%,#f9ded866,transparent 40%),radial-gradient(ellipse at 80% 90%,#ffe8d866,transparent 40%);background-attachment:fixed}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline-color:#8c63a7!important}
+.global-header{background:#fffcf7f5;border-bottom-color:#e7dce9;box-shadow:0 3px 24px #78538e04}
+.global-brand{letter-spacing:-.5px}.global-brand small{font-size:9px;letter-spacing:1px}
+.brand-monogram{background:#f1e6f6;border-color:#e7d7ec;box-shadow:inset 0 1px 0 #fff}
+.global-tabs{background:#f2eaf5;border-color:#ecdfef;border-radius:24px;padding:4px 5px}
+.global-tabs a{border-radius:20px;color:#73627f}
+.global-tabs a[aria-current=page]{background:#fffafc;color:#6e4a87;box-shadow:0 2px 8px #76558f10}
+.section-sidebar,.sidebar,#sidebar{background:var(--workspace-surface)!important;border-color:var(--workspace-line)!important;box-shadow:var(--workspace-shadow)!important}
+.section-sidebar nav a:hover,.sidebar nav a:hover,body[data-section=chat] .thread:hover{background:#f3edf7}
+.section-sidebar nav a[aria-current=page],.sidebar nav a.active{background:linear-gradient(100deg,#eee2f5,#f8eff6);color:#6e4b84}
+.sidebar-bottom,.sidebar-note{color:#796584}
+.account-entry{border:1px solid #e4d8ec;background:#f3eaf8}
+body .button.dark,body .btn{background:linear-gradient(135deg,#856097,#705087);color:white;box-shadow:0 6px 18px #76558f1a,inset 0 1px 0 #ffffff38}
+body .button.dark:hover,body .btn:hover{background:linear-gradient(135deg,#846299,#634276)}
+body .button.light,body .btn.secondary{background:#fff9fbe8;border:1px solid #d9c8e2;color:#715187;box-shadow:inset 0 1px 0 #fff}
+body .button.light:hover,body .btn.secondary:hover{background:#f2e8f8}
+input,select,textarea{border-color:#ded2e5;color:var(--workspace-ink)}
+body:not([data-account-study=true]) [data-requires-access=study],body:not([data-account-chat=true]) [data-requires-access=chat]{display:none!important}
+body[data-section=home] .admin-panel,body[data-section=home] .account-panel{background:var(--workspace-surface)}
+body[data-section=home] .settings-card{background:var(--workspace-surface);border-color:var(--workspace-line);border-radius:22px;box-shadow:var(--workspace-shadow)}
+body[data-section=home] .status-grid{background:#f2eaf6;border-radius:13px}
+body[data-section=study] .hero{background:linear-gradient(110deg,#f3e9f8,#fff1ea);border-color:#e6d8eb}
+body[data-section=study] .hero p{color:var(--workspace-muted)}
+body[data-section=study] .hero-art{color:#9c7bb3}
+body[data-section=study] .panel,body[data-section=study] .stat,body[data-section=study] .practice-shortcuts a,body[data-section=study] .practice-card,body[data-section=study] .question-card{background:var(--workspace-surface);border-color:var(--workspace-line)}
+body[data-section=study] .stat:nth-child(2),body[data-section=study] .practice-shortcuts a:nth-child(2){background:#fff3ec}
+body[data-section=study] .stat:nth-child(3),body[data-section=study] .practice-shortcuts a:nth-child(3){background:#f1eaf8}
+body[data-section=study] .bar{background:#efe6f3}body[data-section=study] .bar>span{background:linear-gradient(90deg,#9272b0,#c39cc5)}
+body[data-section=study] .practice-example,body[data-section=study] .passage{background:#f5eff8}
+body[data-section=chat] .new-chat{border-color:#e0d1e8;background:linear-gradient(105deg,#f0e4f8,#f9eef5)}
+body[data-section=chat] .welcome{background:linear-gradient(120deg,#fffdfbf5,#f4ecfaf0);border-color:#e4d7ec}
+body[data-section=chat] .welcome h2{font-family:var(--workspace-display);font-weight:600;letter-spacing:-.8px}
+body[data-section=chat] .suggestions button{background:#f2eaf8;border-color:#e4d8ec;color:#654c79}
+body[data-section=chat] .suggestions button:nth-child(2){background:#fff0e9;border-color:#f0dfd5;color:#795d56}
+body[data-section=chat] .suggestions button:nth-child(3){background:#f5ecf5;border-color:#e9dbe7;color:#795f7c}
+body[data-section=chat] .message{background:var(--workspace-surface)}
+body[data-section=chat] .message.user{background:#f0e6f6;border-color:#e5d7ed}
+body[data-section=chat] .source,body[data-section=chat] .code-block,body[data-section=chat] .code-label{background:#f4edf7;color:#5f4d70}
+body[data-section=chat] #composer{background:#fffdfbf5;border-color:#dfd0e7;box-shadow:0 8px 28px #76558f0b}
+body[data-section=chat] #composer:focus-within{border-color:#a17fb5;box-shadow:0 0 0 3px #eee2f6}
+body[data-section=chat] #send{background:linear-gradient(135deg,#856097,#705087)}
+@supports(backdrop-filter:blur(1px)){.global-header{background:#fffcf7e8;backdrop-filter:blur(18px)}.section-sidebar,.sidebar,#sidebar{backdrop-filter:blur(16px)}}
+@media(max-width:700px){.section-sidebar,.sidebar,#sidebar{background:#fffaf8f5!important;box-shadow:none!important}.global-header{background:#fffcf7f5}.global-tabs{border-radius:22px}.global-tabs a{border-radius:18px}body{background-attachment:scroll}}
+@media print{body{background:white!important}.global-header,.section-sidebar,.sidebar,#sidebar{display:none!important}}

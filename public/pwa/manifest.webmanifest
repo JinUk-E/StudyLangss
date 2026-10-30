@@ -6,8 +6,8 @@
   "start_url": "/app/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f6f5ef",
-  "theme_color": "#274f43",
+  "background_color": "#fcf8f4",
+  "theme_color": "#fcf8f4",
   "description": "만들고, 배우고, 기록하는 개인 작업실",
   "icons": [
     { "src": "/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },

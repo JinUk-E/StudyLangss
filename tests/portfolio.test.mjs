@@ -86,6 +86,18 @@ test('profile editing publishes only validated fields; portfolio data survives r
   assert.equal(store.project(project.id).title, fixture().title); store.db.close();
 });
 
+test('home glass artwork is a public PNG while arbitrary asset paths stay unavailable', async () => {
+  const path = '/site/assets/starlight-glass-star.png';
+  const response = await call(path, {}, false);
+  assert.equal(response.status, 200); assert.equal(response.headers.get('content-type'), 'image/png');
+  const content = Buffer.from(await response.arrayBuffer());
+  assert.deepEqual(content.subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+  assert.equal(content[25], 6, 'artwork retains RGBA transparency');
+  const head = await call(path, { method: 'HEAD' }, false);
+  assert.equal(head.status, 200); assert.equal(head.headers.get('content-type'), 'image/png'); assert.equal(await head.text(), '');
+  assert.equal((await call('/site/assets/missing.png', {}, false)).status, 404);
+});
+
 test('private GitHub links are omitted from public and signed-in reading while management preserves originals', async () => {
   const repository = 'https://www.github.com/Example/private-project.git/';
   const link = 'https://github.com/example/private-project/releases/latest';

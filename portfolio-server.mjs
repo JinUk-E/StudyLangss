@@ -32,6 +32,7 @@ const files = new Map([
   ['/site/app.js', ['app.js', 'text/javascript']], ['/site/shared.js', ['shared.js', 'text/javascript']],
   ['/site/web-games.mjs', ['../../content/web-games.mjs', 'text/javascript']],
   ['/site/play.js', ['play.js', 'text/javascript']], ['/site/play.css', ['play.css', 'text/css']],
+  ['/site/assets/starlight-glass-star.png', ['assets/starlight-glass-star.png', 'image/png']],
   ['/site/admin.js', ['admin.js', 'text/javascript']], ['/admin/', ['admin.html', 'text/html']],
   ['/portfolio/', ['index.html', 'text/html']], ['/resume/', ['resume.html', 'text/html']], ['/site/resume.js', ['resume.js', 'text/javascript']], ['/site/editorial.css', ['editorial.css', 'text/css']],
   ['/accounts/', ['../accounts/index.html', 'text/html']], ['/accounts/app.js', ['../accounts/app.js', 'text/javascript']], ['/accounts/styles.css', ['../accounts/styles.css', 'text/css']],
@@ -154,7 +155,7 @@ const server = createServer(async (req, res) => {
     if (asset && read) {
       const content = await readFile(resolve(root, 'public/site', asset[0]));
       if (path === '/admin/system/guide.html') res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
-      res.writeHead(200, { 'Content-Type': `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content);
+      res.writeHead(200, { 'Content-Type': asset[1].startsWith('image/') ? asset[1] : `${asset[1]}; charset=utf-8` }); return res.end(method === 'HEAD' ? undefined : content);
     }
     if (path === '/api/portfolio/manage' && method === 'GET') return json(res, 200, { profile: store.profile(), projects: store.projects(), resume: store.resume() });
     if (path === '/api/portfolio/career-template' && method === 'GET') return json(res, 200, { resume: careerResume });
