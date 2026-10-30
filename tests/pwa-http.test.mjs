@@ -53,6 +53,11 @@ test('PWA metadata and worker are public while settings, subscriptions, and publ
   assert.match(manifestResponse.headers.get('content-type'), /application\/manifest\+json/);
   const manifest = await manifestResponse.json();
   assert.equal(manifest.id, '/'); assert.equal(manifest.scope, '/'); assert.equal(manifest.start_url, '/app/'); assert.equal(manifest.display, 'standalone');
+  const portrait = await call('/pwa/stella-mio.png', {}, false);
+  assert.equal(portrait.status, 200); assert.equal(portrait.headers.get('content-type'), 'image/png');
+  assert.deepEqual(Buffer.from(await portrait.arrayBuffer()).subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
+  const portraitHead = await call('/pwa/stella-mio.png', { method: 'HEAD' }, false);
+  assert.equal(portraitHead.status, 200); assert.equal(await portraitHead.text(), '');
   for (const icon of manifest.icons) {
     const image = await call(icon.src, {}, false); assert.equal(image.status, 200);
     if (icon.type === 'image/png') assert.deepEqual(Buffer.from(await image.arrayBuffer()).subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));

@@ -10,6 +10,7 @@ import { questions } from '../content/questions.mjs';
 import { createStore } from '../lib/store.mjs';
 import { schedule } from '../lib/validation.mjs';
 import { createCredentials } from '../lib/auth.mjs';
+import { STELLA_LESSON_INSTRUCTIONS } from '../lib/persona.mjs';
 
 // Disposable integration-test account, never a production default.
 const testUser = 'haru-test', testPassword = 'test-only-password:2026';
@@ -194,6 +195,7 @@ test('Ollama integration sends stored answers server-side and caches successful 
     const payload = JSON.parse(text);
     assert.equal(payload.model, 'local-test-model'); assert.equal(payload.stream, false);
     assert.match(payload.messages[0].content, /스텔라\(Stella\)/);
+    assert.equal(payload.messages[0].role, 'system'); assert.equal(payload.messages[0].content, STELLA_LESSON_INSTRUCTIONS);
     assert.match(payload.messages[0].content, /학습자가 틀린 부분을 탓하지 말고/);
     assert.ok(JSON.parse(payload.messages[1].content).answer); calls++;
     res.end(JSON.stringify({ message: { content: '한국어 테스트 해설입니다.' } }));

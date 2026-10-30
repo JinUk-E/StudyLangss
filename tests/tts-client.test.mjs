@@ -60,6 +60,7 @@ test('chat reading controls require a stored complete assistant and never start 
     assert.equal(context.messageElement({ content: '내용', ...input }).querySelector('.message-speech'), null);
   }
   const article = context.messageElement({ role: 'assistant', status: 'complete', id: 'm1', content: '안녕하세요.' });
+  assert.equal(article.querySelector('.avatar').querySelector('img').src, '/pwa/stella-mio.png');
   const controls = article.querySelector('.message-speech'), language = controls.querySelector('select');
   assert.ok(controls); assert.equal(plays.length, 0);
   language.value = 'ja'; language.onchange(); assert.equal(cancelled, 1);

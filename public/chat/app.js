@@ -84,7 +84,12 @@ function addSpeechControls(article, message) {
 function messageElement(message) {
   const article = element('article', undefined, `message ${message.role}`);
   const head = element('div', undefined, 'message-head');
-  head.append(element('span', message.role === 'user' ? '나' : '✦', 'avatar'), element('span', message.role === 'user' ? '나' : '스텔라'));
+  const avatar = element('span', message.role === 'user' ? '나' : undefined, 'avatar');
+  if (message.role !== 'user') {
+    const portrait = element('img'); portrait.src = '/pwa/stella-mio.png'; portrait.alt = ''; portrait.width = portrait.height = 32;
+    avatar.append(portrait);
+  }
+  head.append(avatar, element('span', message.role === 'user' ? '나' : '스텔라'));
   if (message.role !== 'user' && message.model) head.title = `사용 모델: ${message.model}`;
   const body = element('div', undefined, 'message-body');
   if (message.role === 'user') { const p = element('p', message.content); body.append(p); }

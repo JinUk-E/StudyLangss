@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { createCredentials } from '../lib/auth.mjs';
 import { createChatStore } from '../lib/chat-store.mjs';
 import { localEndpoint } from '../lib/chat-upstream.mjs';
+import { STELLA_PERSONA } from '../lib/persona.mjs';
 
 const credentials = 'test-chat:chat-test-password-2026';
 const authorization = `Basic ${Buffer.from(credentials).toString('base64')}`;
@@ -78,6 +79,9 @@ test('chat page, history, and generation all require authentication; origin and 
   assert.equal((await api('/api/pull', { method: 'POST', body: '{}' })).status, 404);
   assert.equal((await api('/chat/%2e%2e/auth.json')).status, 404);
   const page = await api('/chat/'); assert.equal(page.status, 200); assert.match(page.headers.get('content-security-policy'), /default-src 'self'/);
+  const portrait = await fetch(base + '/pwa/stella-mio.png');
+  assert.equal(portrait.status, 200); assert.equal(portrait.headers.get('content-type'), 'image/png');
+  assert.deepEqual(Buffer.from(await portrait.arrayBuffer()).subarray(0, 8), Buffer.from('89504e470d0a1a0a', 'hex'));
   for (const endpoint of ['https://127.0.0.1', 'http://external.example', 'http://user:pass@localhost', 'http://localhost/path']) assert.throws(() => localEndpoint(endpoint));
 });
 
@@ -95,10 +99,12 @@ test('streaming, search citations, conversation persistence and deletion work wi
   assert.match(lastPayload.messages[0].content, /스텔라\(Stella\)/);
   assert.match(lastPayload.messages[0].content, /부드럽고 지적/);
   assert.match(lastPayload.messages[0].content, /꼼꼼하고 배려심/);
+  assert.equal(lastPayload.messages[0].role, 'system'); assert.ok(lastPayload.messages[0].content.startsWith(STELLA_PERSONA));
   assert.match(lastPayload.messages[0].content, /https:\/\/example.org\/source/);
   const saved = await (await api(`/api/chat/threads/${id}`)).json();
   assert.equal(saved.messages.length, 2); assert.equal(saved.messages[1].status, 'complete'); assert.equal(saved.messages[1].sources.length, 1);
   await send(id, '두 번째 질문'); assert.equal(lastPayload.messages.length, 4);
+  assert.equal(lastPayload.messages[0].role, 'system'); assert.ok(lastPayload.messages[0].content.startsWith(STELLA_PERSONA));
   assert.equal((await api(`/api/chat/threads/${id}`, { method: 'DELETE' })).status, 200);
   assert.equal((await api(`/api/chat/threads/${id}`)).status, 404);
 });
