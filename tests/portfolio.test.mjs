@@ -113,7 +113,7 @@ test('group selection preserves legacy genre, old-client updates, visibility and
   } finally { await call(`/api/portfolio/projects/${id}`, { method: 'DELETE' }); }
   const isolated = join(directory, 'groups'); let store = createPortfolioStore(isolated);
   const counts = store.projects().reduce((value, project) => { const group = projectGroup(project); value[group] = (value[group] || 0) + 1; return value; }, {});
-  assert.deepEqual(counts, { games: 5, learning: 1, tools: 1, web: 1 });
+  assert.deepEqual(counts, { games: 6, learning: 1, tools: 1, web: 1 });
   const legacy = store.projects().find(value => value.id === webGames[0].projectId);
   assert.equal(legacy.group, undefined); assert.equal(projectGroup(legacy), 'games');
   store.saveProject({ ...legacy, group: 'web', title: '수동으로 분류한 작품' }, legacy.id); store.db.close();

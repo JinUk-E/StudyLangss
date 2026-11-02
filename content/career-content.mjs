@@ -1,3 +1,4 @@
+import { blindMazeProject, blindMazeAsset, moraeProfile, moraeResumeSummary, refreshMoraeProject } from './morae-releases.mjs';
 import { baseballProject, baseballAsset } from './baseball-project.mjs';
 // Public website copy adapted from the owner's portfolio and resume.
 // Contact details and application-specific material are intentionally excluded.
@@ -8,6 +9,7 @@ export const careerProfile = {
   tagline: '게임을 만드는 코드에서\n개발을 지탱하는 도구까지.',
   intro: 'Unity와 C#으로 게임을 만들고, JavaScript로 야구 선수 커리어 게임을 제작합니다. 게임 기능, SDK 연동, 모바일 출시와 빌드 자동화 경험을 프로젝트별로 소개합니다.',
   bio: 'Unity 클라이언트 개발자 정진욱입니다. 모바일 게임의 기획·개발·출시 경험을 바탕으로, 게임 기능과 이를 지탱하는 개발 도구를 함께 만듭니다.\n\n페달의민족(Tour de Indoor)에서는 클라이언트 개발을 전담하고 Mac Studio의 Jenkins 기반 Android/iOS 자동 빌드를 담당했습니다. 아트와 서버는 팀원이 담당했습니다. 로그인·광고·데이터 SDK의 실패 처리, 리소스 수명과 빌드 입력값처럼 문제가 발생하기 쉬운 경계를 정리하는 데 관심이 있습니다.\n\n개인 프로토타입에서는 패키지 호환성, 서버 권한과 클라이언트 예측, 화면과 게임 규칙의 분리를 다뤘습니다. AI 도구는 코드 탐색·구현·검토에 활용하고, 변경된 코드와 실제 실행 결과를 확인하며 적용합니다.',
+  ...moraeProfile,
   email: '',
   githubUrl: 'https://github.com/JinUk-E',
   contactUrl: ''
@@ -15,7 +17,7 @@ export const careerProfile = {
 
 export const careerResume = {
   headline: '게임을 만들고, 출시까지 이어가는 Unity 개발자',
-  summary: 'Unity와 C#으로 게임과 인터랙티브 콘텐츠를 개발하는 정진욱입니다.\n\n개인 게임 BlindMaze는 기획부터 App Store·Google Play 출시까지 혼자 진행했습니다. 페달의민족(Tour de Indoor)에서는 팀의 클라이언트 개발을 전담하고, Android·iOS 자동 빌드를 구성했습니다.\n\n게임 기능 구현과 함께 SDK 연동, 리소스 관리, 빌드·배포 과정을 다룹니다. 문제가 생겼을 때 원인을 찾고, 다음 작업을 편하게 이어 갈 수 있도록 개발 환경을 정리합니다.',
+  summary: moraeResumeSummary,
   skills: ['Unity / C#', 'UGUI / Input System', 'URP / Shader Graph', 'UniTask / DOTween', 'Addressables / Localization', 'Unity Profiler / Memory Profiler', 'Android / Gradle', 'iOS / Xcode', 'WebGL', 'Firebase Analytics', 'AdMob / UMP / TheBackend', 'Jenkins / fastlane / Inno Setup', 'Git / REST API / AWS S3', 'Python / MySQL', 'C++ / OpenCV', 'JavaScript / Node.js', 'Claude Code / Codex / Gemini CLI', 'UnityMCP / Ollama'],
   experience: [
     {
@@ -48,7 +50,7 @@ export const careerAssets = [
   { file: 'run.png', path: '/media/8d47aa00-3000-4000-8000-000000000003.png' },
   { file: 'lobby.png', path: '/media/8d47aa00-3000-4000-8000-000000000004.png' },
   { file: 'deduction.png', path: '/media/8d47aa00-3000-4000-8000-000000000005.png' },
-  ...refreshedAssets, baseballAsset
+  ...refreshedAssets, baseballAsset, blindMazeAsset
 ];
 const asset = file => careerAssets.find(image => image.file === file).path;
 const projectBase = { repository: '', link: '', cover: '', gallery: [], published: true, featured: true };
@@ -90,5 +92,5 @@ export const careerProjects = [
     tags: ['Unity', 'C#', 'UI Toolkit', 'JSON', '규칙 모델', 'AI 교차 검토', '자동 진행'],
     cover: asset('m.png'), gallery: [asset('deduction.png')], order: 3
   },
-  baseballProject
-].map(refreshProject);
+  baseballProject, blindMazeProject
+].map(refreshProject).map(refreshMoraeProject);
