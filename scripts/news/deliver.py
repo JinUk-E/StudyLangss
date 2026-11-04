@@ -44,6 +44,19 @@ class CodexMCP:
         self.process.stdin.flush()
         # A transient MCP context only: no model turn, persistent conversation or credential export.
         self.thread=self.call('thread/start',{'ephemeral':True,'cwd':str(ROOT)})['thread']['id']
+        # Thread creation can return before remote MCP discovery has completed.
+        deadline=time.monotonic()+45
+        required={'list_news_topics','publish_news_report','get_news_delivery_status'}
+        while time.monotonic()<deadline:
+            status=self.call('mcpServerStatus/list',{'serverName':'starlight-news','threadId':self.thread,'detail':'toolsAndAuthOnly'})
+            servers=[s for s in status.get('data',[]) if s.get('name')=='starlight-news']
+            if not servers:raise RuntimeError('Register the starlight-news MCP connection in Codex first')
+            server=servers[0]
+            if server.get('runtimeStatus')=='connected' and required.issubset(server.get('tools',{})):return
+            if server.get('runtimeStatus') in ['authenticationRequired','failed','cancelled','disabled']:
+                raise RuntimeError('Codex news connection is unavailable; check its connection and login status')
+            time.sleep(.3)
+        raise TimeoutError('Codex news tools did not become ready')
     def tool(self,name,args):
         result=self.call('mcpServer/tool/call',{'server':'starlight-news','threadId':self.thread,'tool':name,'arguments':args})
         if result.get('isError'):raise RuntimeError('MCP tool failed: '+name)
