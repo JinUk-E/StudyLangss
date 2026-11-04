@@ -12,7 +12,7 @@ import { createChatStore } from '../lib/chat-store.mjs';
 import { questions } from '../content/questions.mjs';
 
 let directory, authenticate, accounts, alice, bob, upstream, upstreamUrl, ownerThread;
-let study, chat, slowClosed = false;
+let study, chat, slowClosed = false, slowStarted = false;
 const children = new Set();
 const passwords = { owner: 'owner-test-password-2026', alice: 'alice-test-password-2026', bob: 'bob-test-password-2026' };
 const auth = name => `Basic ${Buffer.from(`${name}:${passwords[name]}`).toString('base64')}`;
@@ -64,6 +64,7 @@ before(async () => {
       if (!input.stream) return res.end(JSON.stringify({ message: { content: '학습 해설' } }));
       res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
       if (input.messages.at(-1).content === 'slow-revoke') {
+        slowStarted = true;
         res.write(JSON.stringify({ message: { content: '작성 중' } }) + '\n');
         const timer = setTimeout(() => res.end(JSON.stringify({ message: { content: '완료' }, done: true }) + '\n'), 12000);
         res.on('close', () => { slowClosed = true; clearTimeout(timer); }); return;
@@ -191,6 +192,8 @@ test('capability revocation gates assets and APIs across live servers and cancel
   const response = await call(chat.base, 'bob', `/api/chat/threads/${thread.id}/messages`, 'POST', { content: 'slow-revoke', model: 'test-model' });
   assert.equal(response.status, 200);
   const ended = response.text(), began = Date.now();
+  for (let i=0;i<100&&!slowStarted;i++) await new Promise(resolve=>setTimeout(resolve,20));
+  assert.ok(slowStarted);
   await accounts.update(bob.id, { permissions: ['study'] });
   const events = await ended;
   assert.ok(Date.now() - began < 5000, 'revocation must stop generation within five seconds');
@@ -200,4 +203,31 @@ test('capability revocation gates assets and APIs across live servers and cancel
   await accounts.update(bob.id, { enabled: false });
   assert.equal((await call(study.base, 'bob', '/api/state')).status, 401);
   assert.equal((await call(chat.base, 'bob', '/api/chat/threads')).status, 401);
+});
+
+test('planner APIs isolate accounts, require chat permission, validate edits and preserve completed tasks', async () => {
+  assert.equal((await fetch(chat.base+'/api/chat/plans')).status,401);
+  assert.equal((await call(chat.base,'bob','/api/chat/plans')).status,401);
+  await accounts.update(bob.id, {enabled:true,permissions:['study']});
+  assert.equal((await call(chat.base,'bob','/api/chat/plans')).status,403);
+  await accounts.update(bob.id, {permissions:['chat']});
+  const requestId='planner-accounts-request';
+  const created=await call(chat.base,'alice','/api/chat/plans','POST',{plan:{kind:'task',title:'Alice private task'},requestId});assert.equal(created.status,201);
+  const {item}=await created.json();
+  assert.equal((await data(chat.base,'alice','/api/chat/plans')).total,1);
+  assert.equal((await data(chat.base,'bob','/api/chat/plans')).total,0);
+  assert.equal((await call(chat.base,'bob',`/api/chat/plans/${item.id}`,'PATCH',{revision:1,changes:{status:'done'}})).status,404);
+  const duplicate=await call(chat.base,'alice','/api/chat/plans','POST',{plan:{kind:'task',title:'Alice private task'},requestId});assert.equal((await duplicate.json()).duplicate,true);
+  const changed=await call(chat.base,'alice',`/api/chat/plans/${item.id}`,'PATCH',{revision:1,changes:{status:'done'}});assert.equal(changed.status,200);
+  assert.equal((await data(chat.base,'alice','/api/chat/plans?status=done')).items[0].id,item.id);
+  assert.equal((await call(chat.base,'alice',`/api/chat/plans/${item.id}`,'PATCH',{revision:1,changes:{status:'open'}})).status,409);
+  const cross=await fetch(chat.base+'/api/chat/plans',{method:'POST',headers:{Authorization:auth('alice'),'Content-Type':'application/json',Origin:'https://evil.example'},body:JSON.stringify({plan:{kind:'task',title:'forged'}})});assert.equal(cross.status,403);
+});
+
+test('shared library and private maintenance notices are owner-only, including forged project selection',async()=>{
+  assert.equal((await fetch(chat.base+'/api/chat/library')).status,401);
+  for(const path of ['/api/chat/library','/api/chat/library/search?project=Game','/api/chat/library/drafts?project=Game','/api/chat/notices'])assert.equal((await call(chat.base,'alice',path)).status,403,path);
+  assert.equal((await call(chat.base,'alice','/api/chat/library/sync','POST',{})).status,403);
+  assert.equal((await call(chat.base,'alice','/api/chat/threads','POST',{model:'test-model',project:'Game'})).status,403);
+  assert.equal((await data(chat.base,'owner','/api/chat/library')).connected,false);
 });

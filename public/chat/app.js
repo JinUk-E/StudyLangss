@@ -1,3 +1,5 @@
+import { mountLibrary } from './library.js';
+import { mountPlanner, actionCard } from './planner.js';
 import { createSpeech } from './speech.js';
 const speech = createSpeech(globalThis, { service: 'chat' });
 const $ = selector => document.querySelector(selector);
@@ -96,6 +98,7 @@ function messageElement(message) {
   else markdown(body, message.content);
   article.append(head, body, sourceCards(message.sources || []));
   if (['error', 'interrupted'].includes(message.status)) article.append(element('div', message.status === 'interrupted' ? '중단된 답변입니다.' : '완료되지 않은 답변입니다. 다시 질문해 주세요.', 'message-status'));
+  for (const action of message.actions || []) article.append(actionCard(action));
   addSpeechControls(article, message);
   return article;
 }
@@ -105,7 +108,7 @@ function bottom(force = false) {
 function setBusy(value) {
   state.busy = value; $('#stop').hidden = !value; $('#send').hidden = value;
   $('#send').disabled = value || !state.models.length || !$('#prompt').value.trim();
-  for (const selector of ['#model', '#new-chat', '#delete-chat', '#web-search', '#refresh-models']) $(selector).disabled = value;
+  for (const selector of ['#model', '#new-chat', '#delete-chat', '#web-search', '#refresh-models', '#library-project']) $(selector).disabled = value;
   document.querySelectorAll('.thread').forEach(button => { button.disabled = value; });
 }
 async function loadModels() {
@@ -133,6 +136,7 @@ async function openThread(id) {
   if (state.busy) return;
   speech.cancel();
   const data = await api(`/threads/${id}`); state.id = id; state.messages = data.messages;
+  library.setProject(data.thread.project);
   preference.set('thread', id); $('#thread-title').textContent = data.thread.title;
   $('#delete-chat').hidden = false; $('#welcome').hidden = data.messages.length > 0;
   $('#messages').replaceChildren(...data.messages.map(messageElement));
@@ -156,11 +160,11 @@ async function submit(event) {
   speech.cancel();
   setBusy(true); notice(''); preference.set('model', model);
   const controller = new AbortController(); state.controller = controller;
-  let bodyEl, output = '', sourceList = [], warning = '', errorText = '', completed = false, refreshSpeech = false, frame;
+  let bodyEl, output = '', sourceList = [], warning = '', errorText = '', completed = false, refreshSpeech = false, actionSaved = false, frame;
   const draw = () => { if (bodyEl) { markdown(bodyEl, output); bottom(); } };
   try {
     if (!state.id) {
-      const data = await api('/threads', { method: 'POST', body: JSON.stringify({ model }), signal: controller.signal });
+      const data = await api('/threads', { method: 'POST', body: JSON.stringify({ model, project: library.project() }), signal: controller.signal });
       state.id = data.thread.id; preference.set('thread', state.id);
     }
     $('#welcome').hidden = true; $('#delete-chat').hidden = false; $('#prompt').value = ''; $('#prompt').style.height = '';
@@ -181,6 +185,7 @@ async function submit(event) {
       if (item.type === 'status') notice(warning || item.text);
       if (item.type === 'warning') { warning = item.text; notice(warning); }
       if (item.type === 'sources') { sourceList = item.sources; assistant.querySelector('.sources').replaceWith(sourceCards(sourceList)); }
+      if (item.type === 'action') { actionSaved = true; assistant.append(actionCard(item.action)); planner.refresh(); }
       if (item.type === 'error') { errorText = item.text; notice(item.text); }
       if (item.type === 'done') {
         completed = true;
@@ -199,7 +204,7 @@ async function submit(event) {
     if (errorText) assistant.append(element('div', errorText, 'message-status'));
   } catch (error) {
     errorText = controller.signal.aborted ? '답변을 중지했습니다.' : error.message; notice(errorText);
-    if (!output) $('#prompt').value = content;
+    if (!output && !actionSaved) $('#prompt').value = content;
     if (bodyEl) bodyEl.parentElement.append(element('div', errorText, 'message-status'));
   } finally {
     clearTimeout(frame); draw(); bodyEl?.classList.remove('typing'); state.controller = null; setBusy(false);
@@ -208,6 +213,8 @@ async function submit(event) {
   }
 }
 
+const planner = mountPlanner(api, text => { if (state.busy) return; $('#prompt').value = text; $('#web-search').checked = false; setBusy(false); $('#prompt').focus(); });
+const library = mountLibrary(api, {newChat,notice,openThread,setPrompt:text=>{if(state.busy)return;$('#prompt').value=text;$('#web-search').checked=false;setBusy(false);$('#prompt').focus();}});
 $('#composer').onsubmit = submit;
 $('#prompt').oninput = () => { $('#prompt').style.height = 'auto'; $('#prompt').style.height = `${Math.min(160, $('#prompt').scrollHeight)}px`; setBusy(state.busy); };
 $('#prompt').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('#composer').requestSubmit(); } };
@@ -230,7 +237,7 @@ document.querySelectorAll('[data-prompt]').forEach(button => { button.onclick = 
   if (button.dataset.search) { $('#web-search').checked = true; preference.set('search', 'true'); }
   setBusy(false); $('#prompt').focus();
 }; });
-try { const { user } = await api('/me'); preferenceNamespace = user.id === 'owner' ? 'starlight' : `starlight.users.${user.id}`; }
+try { const { user } = await api('/me'); preferenceNamespace = user.id === 'owner' ? 'starlight' : `starlight.users.${user.id}`; await library.init(user); }
 catch (error) { notice(error.message); }
 $('#web-search').checked = preference.get('search') === 'true';
 await loadModels();

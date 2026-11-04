@@ -1,3 +1,9 @@
+import { startLibraryMaintenance } from './lib/library-maintenance.mjs';
+import { createTeamLibrary } from './lib/team-library.mjs';
+import { scopedLibrary } from './lib/library-agent.mjs';
+import { startLibraryHealth } from './lib/library-health.mjs';
+import { runChatAgent } from './lib/chat-agent.mjs';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -26,10 +32,17 @@ const tts = createAppTts({ root, cacheDir: resolve(data, 'tts-cache'), namespace
 const upstream = createUpstream({ ollama: localEndpoint(process.env.CHAT_OLLAMA_URL || 'http://127.0.0.1:11434'), search: localEndpoint(process.env.CHAT_SEARCH_URL || 'http://127.0.0.1:8811') });
 const host = process.env.CHAT_HOST || '127.0.0.1', port = Number(process.env.CHAT_PORT || 3211);
 const active = new Map();
+const library = createTeamLibrary(process.env.STELLA_LIBRARY_DIR || resolve(data,'team-library'));
+const libraryHealth = startLibraryHealth(library,resolve(data,'maintenance'));
+const maintenance = startLibraryMaintenance({library,store:stores.owner,upstream,directory:resolve(data,'maintenance'),model:process.env.STELLA_MAINTENANCE_MODEL||'qwen3.8:27b',isBusy:()=>active.size>0});
+const ownerLibrary = user => { assert(user.id === 'owner','자료실은 소유자 전용입니다.',403); assert(library,'자료실이 연결되지 않았습니다.',503); return library; };
+const validProject = project => {assert(typeof project==='string' && library.projects().some(p=>p.id===project),'프로젝트를 선택하세요.');return project;};
 const json = (res, status, value) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
 const staticFiles = new Map([
   ['/chat/', ['index.html', 'text/html']], ['/chat/app.js', ['app.js', 'text/javascript']], ['/chat/styles.css', ['styles.css', 'text/css']],
   ['/chat/speech.js', ['../speech.js', 'text/javascript']],
+  ['/chat/planner.js', ['planner.js', 'text/javascript']],
+  ['/chat/library.js', ['library.js', 'text/javascript']],
   ['/shared/shell.js', ['../shared/shell.js', 'text/javascript']], ['/shared/shell.css', ['../shared/shell.css', 'text/css']]
 ]);
 
@@ -91,13 +104,13 @@ async function send(req, res, id, input, store, user) {
       }
     }
     emit({ type: 'status', text: '답변을 작성하고 있어요…' });
-    for await (const item of upstream.generate(input.model, modelContext(store.messages(id), sources), signal)) {
-      if (typeof item.message?.content === 'string' && item.message.content) {
-        text += item.message.content;
-        assert(text.length <= 200000, '답변 길이가 제한을 초과했습니다.', 502);
-        emit({ type: 'delta', text: item.message.content });
-      }
-    }
+    const capabilities = await upstream.capabilities(input.model, signal);
+    const project=store.thread(id).project;
+    if(project){ownerLibrary(user);validProject(project);}
+    text = await runChatAgent({ upstream, model: input.model, messages: modelContext(store.messages(id), sources), planner: store.planner, assistantId, signal, capabilities, library: scopedLibrary(library,project,store.drafts),
+      emit: event => { if (event.type === 'delta') text += event.text; emit(event); },
+      checkAccess: () => assert(authenticate.accounts.current(user, 'chat'), '계정이나 AI 대화 권한이 변경되었습니다.', 403)
+    });
     assert(text.trim(), '모델이 빈 답변을 반환했습니다. 다시 시도해 주세요.', 502);
     status = 'complete';
     store.finish(assistantId, text, status, sources);
@@ -140,13 +153,48 @@ const server = createServer(async (req, res) => {
     if (path === '/api/chat/models' && method === 'GET') return json(res, 200, { models: await upstream.models(AbortSignal.timeout(10000)) });
     if (path === '/api/chat/tts/voices' && method === 'GET') return json(res, 200, await tts.voices());
     const store = stores.get(req.user);
+    if(path === '/api/chat/notices' && method === 'GET') {assert(req.user.id==='owner','소유자 전용 공지입니다.',403);return json(res,200,{notices:store.notices()});}
+    if(path === '/api/chat/library' && method === 'GET') {
+      assert(req.user.id==='owner','자료실은 소유자 전용입니다.',403);
+      return json(res,200,{connected:!!library,projects:library?.projects()||[],status:library?.status()||null,health:libraryHealth.latest(),maintenance:maintenance.status()});
+    }
+    if(path.startsWith('/api/chat/library/')) {
+      const lib=ownerLibrary(req.user), query=new URL(req.url,'http://localhost').searchParams;
+      if(path==='/api/chat/library/search'&&method==='GET')return json(res,200,lib.search(validProject(query.get('project')),query.get('q')||''));
+      if(path==='/api/chat/library/read'&&method==='GET')return json(res,200,lib.read(validProject(query.get('project')),query.get('path'),{offset:Number(query.get('offset')||0),tail:query.get('tail')==='true',limit:12000}));
+      if(path==='/api/chat/library/audit'&&method==='GET')return json(res,200,lib.audit(validProject(query.get('project'))));
+      if(path==='/api/chat/library/drafts'&&method==='GET')return json(res,200,{drafts:store.drafts.list(validProject(query.get('project')))});
+      if(path==='/api/chat/library/sync'&&method==='POST')return json(res,200,await lib.sync());
+      const draftMatch=path.match(/^\/api\/chat\/library\/drafts\/([a-f0-9-]{36})\/(apply|discard)$/);
+      if(draftMatch&&method==='POST') {
+        const draft=store.drafts.get(draftMatch[1]);assert(draft,'초안을 찾을 수 없습니다.',404);validProject(draft.project);
+        if(draftMatch[2]==='discard'){store.drafts.discard(draft.id);return json(res,200,{discarded:true});}
+        assert(draft.state!=='discarded','폐기한 초안입니다.',409);
+        if(draft.state==='applied')return json(res,200,draft.receipt);
+        const receipt=lib.apply(draft);store.drafts.applied(draft.id,receipt);return json(res,200,receipt);
+      }
+    }
+    if (path === '/api/chat/plans' && method === 'GET') {
+      const query = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
+      return json(res, 200, store.planner.list(query));
+    }
+    if (path === '/api/chat/plans' && method === 'POST') {
+      const input = await body(req);
+      return json(res, 201, store.planner.mutate('create', input.plan, { operationId: `manual:${input.requestId || randomUUID()}` }));
+    }
+    const planMatch = path.match(/^\/api\/chat\/plans\/([a-f0-9-]{36})$/);
+    if (planMatch && method === 'PATCH') {
+      const input = await body(req);
+      return json(res, 200, store.planner.mutate('update', { id:planMatch[1], revision:input.revision, changes:input.changes }, { operationId: `manual:${input.requestId || randomUUID()}` }));
+    }
     if (path === '/api/chat/tts/audio' && method === 'POST') return await sendSpeech(req, res, { tts, source: resolveChatSpeechSource(store, await body(req)), accounts: authenticate.accounts, permission: 'chat' });
     if (path === '/api/chat/threads') {
       if (method === 'GET') return json(res, 200, { threads: store.list() });
       if (method === 'POST') {
         const input = await body(req);
         assert(typeof input.model === 'string' && input.model.length > 0 && input.model.length <= 160, '모델을 선택하세요.');
-        return json(res, 201, { thread: store.create(input.model) });
+        const project=input.project==null?null:(ownerLibrary(req.user),validProject(input.project));
+        return json(res, 201, { thread: store.create(input.model,project) });
       }
     }
     const match = path.match(/^\/api\/chat\/threads\/([a-f0-9-]{36})(\/messages)?$/);
@@ -170,6 +218,7 @@ server.listen(port, host, () => console.log(`Starlight Chat is running at http:/
 let closing = false;
 function shutdown() {
   if (closing) return; closing = true;
+  libraryHealth.close(); maintenance.close();
   for (const controller of active.values()) controller.abort();
   const closed = Promise.resolve(tts.close()).catch(() => {});
   server.close(() => { closed.finally(() => { stores.close(); authenticate.accounts.close(); process.exit(0); }); });

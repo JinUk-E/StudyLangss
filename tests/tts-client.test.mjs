@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 const practiceSource = (await readFile(new URL('../public/practice.js', import.meta.url), 'utf8')).replace(/^\uFEFF?import[^\n]*\n/, '').replace('export function mountPractice', 'function mountPractice');
-const chatSource = (await readFile(new URL('../public/chat/app.js', import.meta.url), 'utf8')).replace(/^\uFEFF?import[^\n]*\n/, '').split("$('#composer').onsubmit")[0];
+const chatSource = (await readFile(new URL('../public/chat/app.js', import.meta.url), 'utf8')).replace(/^import[^\n]*\n/gm, '').split('const planner = mountPlanner')[0];
 const settle = async () => { for (let i = 0; i < 5; i++) await new Promise(resolve => setImmediate(resolve)); };
 class Element {
   children = []; className = ''; value = ''; disabled = false; textContent = ''; isConnected = true;
