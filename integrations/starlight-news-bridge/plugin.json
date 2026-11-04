@@ -1,0 +1,25 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "starlight-news-bridge",
+  "version": "0.1.0",
+  "description": "ChatGPT에서 확인한 J-POP 공연 알림과 LG 트윈스 소식을 별빛공방의 개인 소식함으로 전달합니다.",
+  "author": {
+    "name": "별빛공방"
+  },
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "별빛공방 소식 배달",
+        "shortDescription": "J-POP·LG 소식을 별빛공방으로",
+        "longDescription": "확인한 출처가 있는 리포트를 J-POP 공연 알림 또는 LG 트윈스 소식 탭에 저장하고, 중복 전송 여부를 확인합니다. 개인 대화·일정·자료실 접근 권한은 없습니다.",
+        "developerName": "별빛공방",
+        "category": "Productivity",
+        "capabilities": [],
+        "defaultPrompt": "이번 소식 리포트를 별빛공방으로 전달해 줘.",
+        "logo": "./assets/icon.png",
+        "composerIcon": "./assets/icon.png",
+        "brandColor": "#76558F"
+      }
+    }
+  }
+}

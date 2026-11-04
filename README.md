@@ -85,6 +85,24 @@ LaunchAgent 사용자가 해당 Git 원격을 fetch/push할 수 있어야 합니
 
 `lib/llm-provider.mjs`는 모델 목록·기능·생성 스트림을 제공하고, `chat-agent.mjs`는 도구 루프, `team-library.mjs`는 파일·Git 경계를 맡습니다. 다른 모델 제공자는 이 계약에 맞춰 추가할 수 있습니다. **GPT API 연결이나 과금·키 설정은 아직 활성화하지 않았으며 현재는 Ollama만 사용합니다.**
 
+## J-POP / LG 트윈스 소식과 ChatGPT 연결
+
+소유자에게만 상단 **소식** 탭(`/chat/news/`)을 표시합니다. **J-POP 공연 알림 / LG 트윈스 소식**을 나누고 기준일·도착 시각·본문·출처를 보관합니다. 일반 공유 계정은 페이지·API에 접근할 수 없습니다.
+
+ChatGPT 예약 작업의 결과를 읽어오는 비공식 API나 세션 쿠키를 사용하지 않습니다. `integrations/starlight-news-bridge/`의 비공개 플러그인이 사용자가 지정한 결과를 서버로 보내는 방식입니다. 기존 예약의 시간·검색 조건·과거 결과는 자동으로 옮겨지지 않습니다.
+
+1. **소식 → ChatGPT 연결**에서 플러그인을 열고 연결 키를 발급합니다. 키는 발급 직후 한 번만 표시됩니다. 대화 본문에 넣지 말고 ChatGPT 플러그인의 API 키 연결 창에 입력합니다.
+2. 기존 J-POP·LG 트윈스 예약 작업에 플러그인을 연결하고, 이 화면에서 복사한 채널별 전달 지시를 기존 검색 조건 뒤에 추가합니다. 첫 실행 결과가 실제 탭에 도착했는지 확인합니다.
+3. 연결 해제·키 재발급은 같은 화면에서 합니다. 재발급하면 이전 키는 즉시 무효입니다. 리포트는 보존됩니다.
+
+어댑터 엔드포인트는 `https://starlightforge.duckdns.org/api/chat/bridge/mcp`이며 인증은 **Bearer API key**입니다. [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)의 stateless JSON 응답을 지원합니다. POST initialize/ping/tools/list/tools/call, 알림 202, GET·DELETE 405이며 Origin과 프로토콜 버전을 검증합니다. 별도 nginx 인증 해제나 새 포트 공개는 필요하지 않습니다.
+
+노출 도구는 `list_news_topics`, `publish_news_report`, `get_news_delivery_status` 세 개뿐입니다. 개인 일정·대화·자료실·서버 설정·쉘 도구는 없습니다. 리포트는 제목·본문·작성 기준일·실제 HTTPS 출처가 필요하며, `(topic, deliveryId)`로 중복 전송을 차단합니다. 같은 ID의 다른 본문은 충돌로 거절합니다. 링크는 서버에서 자동 요청하지 않고 화면에서 안전한 외부 링크로 표시합니다. HTML 본문은 실행하지 않습니다.
+
+운영 데이터는 소유자 `chat.sqlite`의 `news_reports`, `news_bridge`에 저장합니다. 연결 키는 SHA-256 해시만 저장하며 소유자의 계정 revision과 함께 검증합니다. 최대 5,000개 리포트, 본문 18,000자, 출처 20개, HTTP 요청 64 KiB로 제한합니다. 보관함에는 최근 100개를 표시합니다. 일반 DB 백업에는 키 원문이 들어가지 않습니다. 연결 창을 닫거나 페이지를 떠나면 브라우저 입력값을 지우며 localStorage에는 저장하지 않습니다.
+
+플러그인 등록 후 반환된 실제 `plugin_url`을 Git 제외 파일 `data/chat/news-plugin.json`에 `{"pluginUrl":"https://chatgpt.com/..."}` 형태로 저장하면 연결 화면에 표시됩니다. 키는 이 파일이나 플러그인 ZIP에 넣지 않습니다. [ChatGPT 예약 작업 안내](https://learn.chatgpt.com/docs/automations)에 따라 사용자의 해당 예약 작업에서 플러그인을 사용할 수 있어야 하며, 웹/앱의 연결 완료와 첫 실제 전송은 서버 구현 검증과 별도로 확인합니다.
+
 ## 페이지와 접근 권한
 
 포트폴리오·이력서의 GitHub 저장소 링크는 서버가 [GitHub의 저장소 조회 API](https://docs.github.com/en/rest/repos/repos#get-a-repository)로 익명 확인한 공개 저장소만 표시합니다. 비공개·삭제·확인 실패 주소는 공개 JSON에서도 빈 값으로 보내며, 로그인한 방문자에게도 같은 규칙을 적용합니다. 관리자 편집 데이터와 DB의 원래 주소는 유지합니다. GitHub 프로필 주소, 일반 웹사이트와 웹 플레이는 그대로 사용할 수 있습니다. GitHub 토큰이나 추가 설정은 필요하지 않습니다.

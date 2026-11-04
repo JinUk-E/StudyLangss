@@ -1,3 +1,5 @@
+import { createNewsStore, NEWS_TOPICS } from './lib/news-store.mjs';
+import { newsMcpResponse, supportedNewsProtocol } from './lib/news-mcp.mjs';
 import { startLibraryMaintenance } from './lib/library-maintenance.mjs';
 import { createTeamLibrary } from './lib/team-library.mjs';
 import { scopedLibrary } from './lib/library-agent.mjs';
@@ -32,6 +34,8 @@ const tts = createAppTts({ root, cacheDir: resolve(data, 'tts-cache'), namespace
 const upstream = createUpstream({ ollama: localEndpoint(process.env.CHAT_OLLAMA_URL || 'http://127.0.0.1:11434'), search: localEndpoint(process.env.CHAT_SEARCH_URL || 'http://127.0.0.1:8811') });
 const host = process.env.CHAT_HOST || '127.0.0.1', port = Number(process.env.CHAT_PORT || 3211);
 const active = new Map();
+const news=createNewsStore(stores.owner.db);
+const newsOrigin='https://starlightforge.duckdns.org';
 const library = createTeamLibrary(process.env.STELLA_LIBRARY_DIR || resolve(data,'team-library'));
 const libraryHealth = startLibraryHealth(library,resolve(data,'maintenance'));
 const maintenance = startLibraryMaintenance({library,store:stores.owner,upstream,directory:resolve(data,'maintenance'),model:process.env.STELLA_MAINTENANCE_MODEL||'qwen3.8:27b',isBusy:()=>active.size>0});
@@ -43,6 +47,7 @@ const staticFiles = new Map([
   ['/chat/speech.js', ['../speech.js', 'text/javascript']],
   ['/chat/planner.js', ['planner.js', 'text/javascript']],
   ['/chat/library.js', ['library.js', 'text/javascript']],
+  ['/chat/news/', ['news/index.html', 'text/html']], ['/chat/news/app.js', ['news/app.js', 'text/javascript']], ['/chat/news/styles.css', ['news/styles.css', 'text/css']],
   ['/shared/shell.js', ['../shared/shell.js', 'text/javascript']], ['/shared/shell.css', ['../shared/shell.css', 'text/css']]
 ]);
 
@@ -137,11 +142,24 @@ const server = createServer(async (req, res) => {
     if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
     const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
+    if(path==='/api/chat/bridge/mcp') {
+      if(req.headers.origin && req.headers.origin!==newsOrigin)return json(res,403,{error:'Origin not allowed'});
+      if(!news.authenticate(req.headers.authorization,authenticate.accounts)){res.setHeader('WWW-Authenticate','Bearer realm="starlight-news"');return json(res,401,{error:'News connector authentication required'});}
+      if(method!=='POST'){res.setHeader('Allow','POST');return json(res,405,{error:'Stateless MCP uses POST'});}
+      if(!supportedNewsProtocol(req.headers['mcp-protocol-version']))return json(res,400,{error:'Unsupported MCP protocol version'});
+      const accept=req.headers.accept||'';
+      if(!accept.includes('application/json')||!accept.includes('text/event-stream'))return json(res,406,{error:'Accept application/json and text/event-stream'});
+      const result=newsMcpResponse(await body(req),news,newsOrigin);
+      if(result.status===202){res.writeHead(202);return res.end();}
+      return json(res,result.status,result.body);
+    }
     if (method === 'GET' && path === '/api/chat/session') return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null });
     if (!await authenticate(req, res)) return;
     sameOrigin(req);
     const sharedAsset = ['/shared/shell.js', '/shared/shell.css'].includes(path) && ['GET', 'HEAD'].includes(method);
     if (!sharedAsset && !requireAccess(req, res, 'chat')) return;
+    if(path==='/chat/news'){assert(req.user.id==='owner','소식은 소유자 전용입니다.',403);res.writeHead(302,{Location:'/chat/news/'});return res.end();}
+    if(path.startsWith('/chat/news/')||path.startsWith('/api/chat/news'))assert(req.user.id==='owner','소식은 소유자 전용입니다.',403);
     if (path === '/chat' && ['GET', 'HEAD'].includes(method)) { res.writeHead(302, { Location: '/chat/' }); return res.end(); }
     if (staticFiles.has(path) && ['GET', 'HEAD'].includes(method)) {
       const [file, mime] = staticFiles.get(path);
@@ -152,6 +170,18 @@ const server = createServer(async (req, res) => {
     if (path === '/api/chat/me' && method === 'GET') return json(res, 200, { user: { id: req.user.id, username: req.user.username, permissions: req.user.permissions, isAdmin: req.user.isAdmin } });
     if (path === '/api/chat/models' && method === 'GET') return json(res, 200, { models: await upstream.models(AbortSignal.timeout(10000)) });
     if (path === '/api/chat/tts/voices' && method === 'GET') return json(res, 200, await tts.voices());
+    if(path==='/api/chat/news'&&method==='GET')return json(res,200,{reports:news.list(new URL(req.url,'http://localhost').searchParams.get('topic')||'jpop')});
+    if(path==='/api/chat/news/topics'&&method==='GET')return json(res,200,{topics:NEWS_TOPICS});
+    const newsMatch=path.match(/^\/api\/chat\/news\/reports\/([a-f0-9-]{36})$/);
+    if(newsMatch&&method==='GET'){const report=news.get(newsMatch[1]);assert(report,'리포트를 찾을 수 없습니다.',404);return json(res,200,{report});}
+    if(path==='/api/chat/news/connection'&&method==='GET') {
+      let pluginUrl=null;try{const config=JSON.parse(await readFile(resolve(data,'news-plugin.json'),'utf8'));const url=new URL(config.pluginUrl);if(url.protocol==='https:'&&url.hostname==='chatgpt.com')pluginUrl=url.href;}catch{}
+      const connection=news.connection();if(connection.enabled&&!authenticate.accounts.current({id:'owner',revision:connection.ownerRevision},'admin'))connection.enabled=false;
+      delete connection.ownerRevision;
+      return json(res,200,{...connection,endpoint:newsOrigin+'/api/chat/bridge/mcp',pluginUrl});
+    }
+    if(path==='/api/chat/news/connection/token'&&method==='POST')return json(res,201,{token:news.issue(req.user.revision)});
+    if(path==='/api/chat/news/connection/token'&&method==='DELETE'){news.revoke();return json(res,200,{revoked:true});}
     const store = stores.get(req.user);
     if(path === '/api/chat/notices' && method === 'GET') {assert(req.user.id==='owner','소유자 전용 공지입니다.',403);return json(res,200,{notices:store.notices()});}
     if(path === '/api/chat/library' && method === 'GET') {
