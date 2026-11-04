@@ -1,3 +1,4 @@
+import { renderReport } from './report-format.js';
 const $=s=>document.querySelector(s),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
 const labels={jpop:'J-POP 공연 알림',twins:'LG 트윈스 소식',milan:'AC 밀란 소식',jobs:'주간 채용 소식'};
 const artwork={jpop:['♫','LIVE & MUSIC'],twins:['⚾','TWINS CLUB'],milan:['⚽','ROSSONERI'],jobs:['⌘','NEXT CHAPTER']};
@@ -33,8 +34,8 @@ async function openReport(id){
   try{
     const {report}=await api('/reports/'+encodeURIComponent(id));if(run!==reportGeneration||!dialog.open)return;
     dialog.dataset.channel=report.topic;$('#report-topic').textContent=labels[report.topic];$('#report-title').textContent=report.title;$('#report-date').textContent=`기준일 ${report.reportDate} · 도착 ${time(report.receivedAt)}`;
-    for(const paragraph of report.body.split(/\n\s*\n/)){const heading=/^#{1,6}\s/.test(paragraph);body.append(el(heading?'h3':'p',paragraph.replace(/^#{1,6}\s/,'')));}
-    for(const source of report.sources){const li=el('li'),a=el('a',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';li.append(a);sources.append(li);}$('.report-sources').hidden=false;
+    renderReport(body,report.body,report.sources,report.title);
+    for(const [index,source] of report.sources.entries()){const li=el('li'),a=el('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';const number=el('span',String(index+1).padStart(2,'0'));number.className='source-number';const detail=el('span');detail.append(el('strong',source.title),el('small',new URL(source.url).hostname));a.append(number,detail,el('span','↗'));li.append(a);sources.append(li);}$('.report-sources').hidden=false;
     const url=new URL(location.href);url.searchParams.set('report',id);history.replaceState(null,'',url);
   }catch(e){if(run===reportGeneration&&dialog.open){$('#report-title').textContent='소식을 불러오지 못했어요';body.append(el('p',e.message));}}
 }

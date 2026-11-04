@@ -49,7 +49,7 @@ const staticFiles = new Map([
   ['/chat/speech.js', ['../speech.js', 'text/javascript']],
   ['/chat/planner.js', ['planner.js', 'text/javascript']],
   ['/chat/library.js', ['library.js', 'text/javascript']],
-  ['/chat/news/', ['news/index.html', 'text/html']], ['/chat/news/app.js', ['news/app.js', 'text/javascript']], ['/chat/news/styles.css', ['news/styles.css', 'text/css']],
+  ['/chat/news/', ['news/index.html', 'text/html']], ['/chat/news/app.js', ['news/app.js', 'text/javascript']], ['/chat/news/styles.css', ['news/styles.css', 'text/css']], ['/chat/news/report-format.js', ['news/report-format.js', 'text/javascript']],
   ['/shared/shell.js', ['../shared/shell.js', 'text/javascript']], ['/shared/shell.css', ['../shared/shell.css', 'text/css']]
 ]);
 

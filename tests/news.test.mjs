@@ -55,7 +55,7 @@ before(async()=>{
 });
 after(async()=>{if(child?.exitCode===null){const done=once(child,'exit');child.kill();await done;}manager?.accounts.close();if(directory)await rm(directory,{recursive:true,force:true});});
 test('news pages and API are owner-only; MCP uses a separate revocable credential and validates Origin',async()=>{
-  for(const path of ['/chat/news/','/chat/news/app.js','/api/chat/news?topic=jpop','/api/chat/news/connection']) {assert.equal((await fetch(base+path)).status,401);assert.equal((await call(path,{name:'member'})).status,403);assert.equal((await call(path)).status,200);}
+  for(const path of ['/chat/news/','/chat/news/app.js','/chat/news/report-format.js','/api/chat/news?topic=jpop','/api/chat/news/connection']) {assert.equal((await fetch(base+path)).status,401);assert.equal((await call(path,{name:'member'})).status,403);assert.equal((await call(path)).status,200);}
   assert.equal((await call('/api/chat/news/connection/token',{name:'member',method:'POST',value:{}})).status,403);
   assert.equal((await call('/api/chat/news/connection/token',{method:'POST',value:{},headers:{Origin:'https://evil.example'}})).status,403);
   const issued=await call('/api/chat/news/connection/token',{method:'POST',value:{}});assert.equal(issued.status,201);const {token}=await issued.json();
