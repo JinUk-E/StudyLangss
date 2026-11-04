@@ -3,3 +3,41 @@ body[data-section=news]{padding-top:var(--header-height)}.news-shell{max-width:1
 
 .topic-tabs button[data-topic=jobs][aria-selected=true]{border-color:#95b7ad;background:linear-gradient(115deg,#e5f2ec,#fff8f5)}
 @media(max-width:700px){.topic-tabs{grid-template-columns:1fr}.topic-tabs button{flex-direction:row;align-items:center}.topic-tabs strong{font-size:15px}}
+
+/* A whole card is one keyboard- and touch-accessible news entry. */
+.topic-tabs{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.topic-tabs button{padding:18px 14px;gap:12px}
+.topic-tabs strong{font-size:15px}
+.topic-tabs button[data-topic=milan][aria-selected=true]{border-color:#c96d73;background:linear-gradient(115deg,#f6e0e1,#fff8f5)}
+.report-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;align-items:stretch}
+.report-card,[data-channel]{--card-accent:#735283;--cover-start:#e1d2ee;--cover-end:#f6e6e3}
+[data-channel=twins]{--card-accent:#9d3054;--cover-start:#edd1db;--cover-end:#f7e5e2}
+[data-channel=milan]{--card-accent:#a32d3c;--cover-start:#3c2930;--cover-end:#9b3641}
+[data-channel=jobs]{--card-accent:#3d7564;--cover-start:#cde3d6;--cover-end:#edf1dd}
+.report-card{padding:0;overflow:hidden;border-radius:22px;transition:transform .18s ease,box-shadow .18s ease}
+.news-shell .report-card .report-open{display:flex;flex-direction:column;width:100%;height:100%;padding:0;margin:0;border:0;border-radius:21px;background:var(--paper);color:var(--ink);text-align:left;font:inherit}
+.card-cover{display:flex;position:relative;isolation:isolate;flex-direction:column;justify-content:space-between;width:100%;height:182px;padding:20px 22px;overflow:hidden;background:linear-gradient(125deg,var(--cover-start),var(--cover-end));color:var(--card-accent)}
+.card-cover::before,.card-cover::after{content:'';position:absolute;z-index:-1;border:1px solid currentColor;opacity:.16;border-radius:50%;width:210px;height:210px;right:-55px;top:-60px}
+.card-cover::after{width:270px;height:270px;top:-90px;right:-85px}
+.card-cover>span:last-child{font-size:9px;font-weight:700;letter-spacing:2px}
+.card-mark{font-size:11px;font-weight:700;letter-spacing:2px}
+.card-symbol{position:absolute;right:27px;bottom:24px;font-size:64px;line-height:1;transform:rotate(-10deg)}
+[data-channel=milan] .card-cover{color:#fff0ee;background:repeating-linear-gradient(110deg,#0000 0 33px,#130e182e 33px 66px),linear-gradient(125deg,var(--cover-start),var(--cover-end))}
+.card-content{display:flex;flex:1;flex-direction:column;padding:22px 23px 20px;min-width:0;width:100%}
+.report-card time{font-size:11px;color:var(--card-accent);letter-spacing:.8px}
+.card-title{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:19px;line-height:1.55;font-weight:650;margin:12px 0;letter-spacing:-.45px;word-break:keep-all;overflow-wrap:anywhere}
+.card-preview{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--muted);font-size:12px;line-height:1.85;margin-bottom:22px;white-space:normal}
+.card-more{display:block;margin-top:auto;padding-top:16px;border-top:1px solid var(--line);font-size:11px;font-weight:650;color:var(--card-accent)}
+.report-card:focus-within{outline:3px solid var(--card-accent);outline-offset:4px}
+.report-open:focus-visible{outline:none}
+@media(hover:hover){.report-card:hover{transform:translateY(-4px);box-shadow:0 15px 35px #34203914}}
+body:has(dialog[open]){overflow:hidden}
+#report-dialog{border-top:7px solid var(--card-accent);box-shadow:0 28px 100px #2418293d;overscroll-behavior:contain}
+#report-dialog .eyebrow{color:var(--card-accent)}
+#report-dialog .dialog-heading{position:sticky;top:-30px;padding:12px 0;background:var(--paper);z-index:1;align-items:center}
+#report-title{letter-spacing:-.5px;word-break:keep-all}
+#report-dialog[open]{animation:news-open .18s ease-out}
+@keyframes news-open{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:1000px){.topic-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.topic-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.topic-tabs button{gap:8px;padding:13px 10px}.topic-tabs strong{font-size:13px}.topic-tabs small{font-size:10px}.topic-icon{width:32px;height:36px;font-size:20px}.report-grid{grid-template-columns:1fr;gap:20px}.card-cover{height:166px}.card-content{padding:21px}.card-title{font-size:20px}#report-dialog .dialog-heading{top:-20px}dialog{width:calc(100% - 32px)}}
+@media(prefers-reduced-motion:reduce){.report-card{transition:none}#report-dialog[open]{animation:none}}

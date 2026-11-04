@@ -1,5 +1,7 @@
 const $=s=>document.querySelector(s),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
-const labels={jpop:'J-POP 공연 알림',twins:'LG 트윈스 소식',jobs:'주간 채용 소식'};
+const labels={jpop:'J-POP 공연 알림',twins:'LG 트윈스 소식',milan:'AC 밀란 소식',jobs:'주간 채용 소식'};
+const artwork={jpop:['♫','LIVE & MUSIC'],twins:['⚾','TWINS CLUB'],milan:['⚽','ROSSONERI'],jobs:['⌘','NEXT CHAPTER']};
+let reportGeneration=0;
 const params=new URLSearchParams(location.search);let topic=Object.hasOwn(labels,params.get('topic'))?params.get('topic'):'jpop',generation=0,connected=false;
 async function api(path,options={}){const r=await fetch('/api/chat/news'+path,{...options,headers:{'Content-Type':'application/json',...options.headers},cache:'no-store'});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'소식을 불러오지 못했습니다.');return data;}
 const note=text=>{$('#notice').textContent=text;};
@@ -11,10 +13,39 @@ function clearToken(){$('#connection-token').value='';$('#token-box').hidden=tru
 async function refresh(){const run=++generation;for(const b of document.querySelectorAll('[data-topic]')){const active=b.dataset.topic===topic;b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;}$('#news-panel').setAttribute('aria-labelledby','tab-'+topic);$('#topic-heading').textContent=labels[topic];note('');$('#report-count').textContent='소식을 불러오고 있어요.';
   try {const {reports}=await api('?topic='+topic);if(run!==generation)return;$('#reports').replaceChildren();$('#report-count').textContent=`보관된 리포트 ${reports.length}개${reports.length===100?' · 최근 100개 표시':''}`;
     if(!reports.length){const empty=el('div');empty.className='empty-state';empty.append(el('h3','아직 도착한 소식이 없어요.'),el('p','ChatGPT 예약 작업에 소식 배달을 연결하면\n새 리포트가 이곳에 차곡차곡 쌓여요.'));const button=el('button','ChatGPT 연결 안내');button.onclick=()=>openConnection().catch(e=>note(e.message));empty.append(button);$('#reports').append(empty);}
-    for(const report of reports){const card=el('article');card.className='report-card';const date=el('time',report.reportDate+' 리포트');date.dateTime=report.reportDate;const b=el('button','리포트 읽기 ↗');b.onclick=()=>openReport(report.id).catch(e=>note(e.message));card.append(date,el('h3',report.title),el('p',report.preview.replace(/^#{1,6}\s/gm,'').replace(/\*\*/g,'')+(report.preview.length>=200?'…':'')),b);$('#reports').append(card);}
+    for(const report of reports){
+      const card=el('article');card.className='report-card';card.dataset.channel=report.topic;
+      const b=el('button');b.type='button';b.className='report-open';b.setAttribute('aria-label',report.title+' — 소식 열기');b.setAttribute('aria-haspopup','dialog');
+      const cover=el('span');cover.className='card-cover';cover.setAttribute('aria-hidden','true');
+      const mark=el('span',artwork[report.topic][1]);mark.className='card-mark';const icon=el('span',artwork[report.topic][0]);icon.className='card-symbol';
+      cover.append(mark,icon,el('span','STARLIGHT NEWS'));
+      const content=el('span');content.className='card-content';const date=el('time',report.reportDate);date.dateTime=report.reportDate;
+      const title=el('strong',report.title);title.className='card-title';const preview=el('span',report.preview.replace(/^#{1,6}\s/gm,'').replace(/\*\*/g,''));preview.className='card-preview';
+      const more=el('span','소식 펼쳐보기 ↗');more.className='card-more';content.append(date,title,preview,more);b.append(cover,content);
+      b.onclick=()=>openReport(report.id);card.append(b);$('#reports').append(card);
+    }
   }catch(e){if(run===generation){note(e.message);$('#report-count').textContent='새로고침으로 다시 확인할 수 있어요.';}}
 }
-async function openReport(id){const {report}=await api('/reports/'+encodeURIComponent(id));$('#report-topic').textContent=labels[report.topic];$('#report-title').textContent=report.title;$('#report-date').textContent=`기준일 ${report.reportDate} · 도착 ${time(report.receivedAt)}`;const body=$('#report-body');body.replaceChildren();for(const paragraph of report.body.split(/\n\s*\n/)){const heading=/^#{1,6}\s/.test(paragraph);body.append(el(heading?'h3':'p',paragraph.replace(/^#{1,6}\s/,'')));}const sources=$('#report-sources');sources.replaceChildren();for(const source of report.sources){const li=el('li'),a=el('a',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';li.append(a);sources.append(li);}$('#report-dialog').showModal();}
+async function openReport(id){
+  const run=++reportGeneration,dialog=$('#report-dialog'),body=$('#report-body'),sources=$('#report-sources');
+  dialog.dataset.channel=topic;$('#report-topic').textContent=labels[topic];$('#report-title').textContent='소식을 펼치고 있어요';$('#report-date').textContent='';body.replaceChildren();sources.replaceChildren();$('.report-sources').hidden=true;
+  if(!dialog.open)dialog.showModal();dialog.scrollTop=0;
+  try{
+    const {report}=await api('/reports/'+encodeURIComponent(id));if(run!==reportGeneration||!dialog.open)return;
+    dialog.dataset.channel=report.topic;$('#report-topic').textContent=labels[report.topic];$('#report-title').textContent=report.title;$('#report-date').textContent=`기준일 ${report.reportDate} · 도착 ${time(report.receivedAt)}`;
+    for(const paragraph of report.body.split(/\n\s*\n/)){const heading=/^#{1,6}\s/.test(paragraph);body.append(el(heading?'h3':'p',paragraph.replace(/^#{1,6}\s/,'')));}
+    for(const source of report.sources){const li=el('li'),a=el('a',source.title);a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';li.append(a);sources.append(li);}$('.report-sources').hidden=false;
+    const url=new URL(location.href);url.searchParams.set('report',id);history.replaceState(null,'',url);
+  }catch(e){if(run===reportGeneration&&dialog.open){$('#report-title').textContent='소식을 불러오지 못했어요';body.append(el('p',e.message));}}
+}
+$('#report-dialog').addEventListener('close',()=>{reportGeneration++;const url=new URL(location.href);url.searchParams.delete('report');history.replaceState(null,'',url);});
+for(const dialog of document.querySelectorAll('dialog')){
+  let startedOutside=false;
+  const outside=e=>{const r=dialog.getBoundingClientRect();return e.target===dialog&&(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom);};
+  dialog.addEventListener('pointerdown',e=>{startedOutside=outside(e);});
+  dialog.addEventListener('pointerup',e=>{if(startedOutside&&outside(e))dialog.close();startedOutside=false;});
+  dialog.addEventListener('pointercancel',()=>{startedOutside=false;});
+}
 for(const b of document.querySelectorAll('[data-topic]'))b.onclick=()=>{topic=b.dataset.topic;history.replaceState(null,'','?topic='+topic);refresh();};
 $('.topic-tabs').onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const keys=Object.keys(labels),index=keys.indexOf(topic);topic=e.key==='Home'?keys[0]:e.key==='End'?keys.at(-1):keys[(index+(e.key==='ArrowRight'?1:-1)+keys.length)%keys.length];$('#tab-'+topic).click();$('#tab-'+topic).focus();};
 $('#refresh-news').onclick=refresh;$('#close-report').onclick=()=>$('#report-dialog').close();$('#open-connection').onclick=()=>openConnection().catch(e=>note(e.message));$('#close-connection').onclick=()=>{clearToken();$('#connection-dialog').close();};$('#connection-dialog').addEventListener('cancel',clearToken);$('#connection-dialog').addEventListener('close',clearToken);

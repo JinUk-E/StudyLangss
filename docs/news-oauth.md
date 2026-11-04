@@ -7,7 +7,7 @@
 - 플러그인을 0.2.0 이상으로 업데이트하고 Codex MCP 설정에서 인증을 시작한다.
 - 별빛공방 소유자 계정으로 브라우저에서 로그인한 뒤 소식 연결을 승인한다.
 - Codex가 콜백을 받아 인증을 완료한 뒤 MCP 연결을 새로고침한다. 새 대화가 필요할 수 있다.
-- `list_news_topics` 결과에 `jpop`, `twins`가 있는지 확인한다. 0.3.0 이상에서는 주간 채용 `jobs`도 제공한다.
+- `list_news_topics` 결과에 `jpop`, `twins`가 있는지 확인한다. 0.4.0 이상에서는 주간 채용 `jobs`와 AC 밀란 `milan`도 제공한다.
 - 직접 구성하는 Codex CLI에서는 `codex mcp add starlight-news --url https://starlightforge.duckdns.org/api/chat/bridge/mcp`, 이어서 `codex mcp login starlight-news`를 실행한다. 플러그인 연결과 직접 등록은 별도 연결이다.
 - 로그인은 Codex가 실행되는 컴퓨터에서 완료한다. Windows의 loopback 콜백은 Windows 브라우저에서, Mac의 콜백은 Mac 브라우저에서 완료한다.
 

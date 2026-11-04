@@ -17,6 +17,9 @@ test('news validates sources/date, rejects unknown fields, preserves idempotency
   assert.throws(()=>news.publish({...report,body:'different'}),e=>e.status===409);
   for(const change of [{topic:'private'},{reportDate:'2026-02-30'},{deliveryId:'../secret'},{ownerId:'other'},{sources:[]},{sources:[{title:'XSS',url:'javascript:alert(1)'}]},{sources:[{title:'credentials',url:'https://secret@example.org/'}]}])assert.throws(()=>validateNews({...report,...change}));
   assert.deepEqual(news.delivery('twins',report.deliveryId),{found:false});
+  const football=news.publish({...report,topic:'milan',title:'AC 밀란 경기 소식'});
+  assert(football.saved);assert.equal(news.list('milan').length,1);assert.equal(news.list('twins').length,0);
+  assert(news.publish({...report,topic:'milan',title:'AC 밀란 경기 소식'}).duplicate);
   const job=news.publish({...report,topic:'jobs',title:'주간 Unity 채용 공고'});
   assert(job.saved);assert.equal(news.list('jobs').length,1);assert.equal(news.list('jpop').length,1);
   assert(news.publish({...report,topic:'jobs',title:'주간 Unity 채용 공고'}).duplicate);
@@ -33,8 +36,8 @@ test('MCP only advertises delivery tools and returns explicit failures without a
   const db=new DatabaseSync(':memory:');t.after(()=>db.close());const news=createNewsStore(db),rpc=(method,params)=>newsMcpResponse({jsonrpc:'2.0',id:1,method,params},news,'https://example.org');
   assert.equal(rpc('initialize',{protocolVersion:'2025-11-25'}).body.result.protocolVersion,'2025-11-25');
   assert.deepEqual(rpc('tools/list').body.result.tools.map(t=>t.name),['list_news_topics','publish_news_report','get_news_delivery_status']);
-  assert.deepEqual(rpc('tools/call',{name:'list_news_topics'}).body.result.structuredContent.topics.map(t=>t.id),['jpop','twins','jobs']);
-  assert.deepEqual(rpc('tools/list').body.result.tools[1].inputSchema.properties.topic.enum,['jpop','twins','jobs']);
+  assert.deepEqual(rpc('tools/call',{name:'list_news_topics'}).body.result.structuredContent.topics.map(t=>t.id),['jpop','twins','milan','jobs']);
+  assert.deepEqual(rpc('tools/list').body.result.tools[1].inputSchema.properties.topic.enum,['jpop','twins','milan','jobs']);
   assert.equal(rpc('tools/call',{name:'read_calendar',arguments:{}}).body.error.code,-32602);
   const saved=rpc('tools/call',{name:'publish_news_report',arguments:report}).body.result;assert(saved.structuredContent.saved);assert.match(saved.structuredContent.url,/chat\/news/);
   assert(rpc('tools/call',{name:'publish_news_report',arguments:{...report,body:'conflict'}}).body.result.isError);
