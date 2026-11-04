@@ -11,6 +11,20 @@ import {createNewsStore,validateNews} from '../lib/news-store.mjs';
 import {newsMcpResponse} from '../lib/news-mcp.mjs';
 
 const report={topic:'jpop',deliveryId:'jpop:2026-11-04:test',title:'테스트 공연 알림',body:'검증용 정보입니다. [1]',reportDate:'2026-11-04',sources:[{title:'검증 출처',url:'https://example.org/news'}]};
+const custom={name:'테스트 관심 팀',query:'공식 경기 일정과 결과',sourceUrls:['https://example.org/news'],theme:'blue',autoCollect:true,requestId:'11111111-1111-4111-8111-111111111111'};
+test('custom topics persist, deduplicate, validate and accept reports only for registered topics',t=>{
+  const db=new DatabaseSync(':memory:');t.after(()=>db.close());const news=createNewsStore(db),saved=news.addTopic(custom);
+  assert(saved.topic.custom);assert(saved.topic.autoCollect);assert.equal(news.addTopic(custom).topic.id,saved.topic.id);assert(news.addTopic(custom).duplicate);
+  assert.throws(()=>news.addTopic({...custom,query:'changed'}),e=>e.status===409);
+  assert.throws(()=>news.addTopic({...custom,requestId:'22222222-2222-4222-8222-222222222222'}),e=>e.status===409);
+  assert.equal(createNewsStore(db).topics().find(t=>t.id===saved.topic.id).query,custom.query);
+  for(const url of ['javascript:alert(1)','http://example.org','https://localhost','https://127.0.0.1','https://[::ffff:127.0.0.1]','https://user:secret@example.org'])assert.throws(()=>news.addTopic({...custom,sourceUrls:[url]}));
+  const published=news.publish({...report,topic:saved.topic.id});assert(published.saved);assert.equal(news.list(saved.topic.id).length,1);
+  assert.throws(()=>news.publish({...report,topic:'custom-unknown'}));
+  const updated=news.updateTopic(saved.topic.id,{...custom,revision:1,autoCollect:false});assert.equal(updated.topic.revision,2);assert.equal(updated.topic.autoCollect,false);assert.equal(news.list(saved.topic.id).length,1);
+  assert.throws(()=>news.updateTopic(saved.topic.id,{...custom,revision:1}),e=>e.status===409);
+  assert.throws(()=>news.updateTopic('jpop',{...custom,revision:1}),e=>e.status===404);
+});
 test('news validates sources/date, rejects unknown fields, preserves idempotency and topic separation',t=>{
   const db=new DatabaseSync(':memory:');t.after(()=>db.close());const news=createNewsStore(db);
   const a=news.publish(report);assert(a.saved);assert(news.publish(report).duplicate);assert.equal(news.list('jpop').length,1);assert.equal(news.list('twins').length,0);
@@ -37,7 +51,11 @@ test('MCP only advertises delivery tools and returns explicit failures without a
   assert.equal(rpc('initialize',{protocolVersion:'2025-11-25'}).body.result.protocolVersion,'2025-11-25');
   assert.deepEqual(rpc('tools/list').body.result.tools.map(t=>t.name),['list_news_topics','publish_news_report','get_news_delivery_status']);
   assert.deepEqual(rpc('tools/call',{name:'list_news_topics'}).body.result.structuredContent.topics.map(t=>t.id),['jpop','twins','milan','jobs']);
-  assert.deepEqual(rpc('tools/list').body.result.tools[1].inputSchema.properties.topic.enum,['jpop','twins','milan','jobs']);
+  const topicSchema=rpc('tools/list').body.result.tools[1].inputSchema.properties.topic;assert.equal(topicSchema.type,'string');assert.equal(topicSchema.enum,undefined);
+  const added=news.addTopic(custom).topic;
+  assert(rpc('tools/call',{name:'list_news_topics'}).body.result.structuredContent.topics.some(t=>t.id===added.id&&t.query===custom.query));
+  assert(rpc('tools/call',{name:'publish_news_report',arguments:{...report,topic:added.id}}).body.result.structuredContent.saved);
+  assert.equal(rpc('tools/call',{name:'add_news_topic',arguments:custom}).body.error.code,-32602);
   assert.equal(rpc('tools/call',{name:'read_calendar',arguments:{}}).body.error.code,-32602);
   const saved=rpc('tools/call',{name:'publish_news_report',arguments:report}).body.result;assert(saved.structuredContent.saved);assert.match(saved.structuredContent.url,/chat\/news/);
   assert(rpc('tools/call',{name:'publish_news_report',arguments:{...report,body:'conflict'}}).body.result.isError);
@@ -57,6 +75,12 @@ after(async()=>{if(child?.exitCode===null){const done=once(child,'exit');child.k
 test('news pages and API are owner-only; MCP uses a separate revocable credential and validates Origin',async()=>{
   for(const path of ['/chat/news/','/chat/news/app.js','/chat/news/report-format.js','/api/chat/news?topic=jpop','/api/chat/news/connection']) {assert.equal((await fetch(base+path)).status,401);assert.equal((await call(path,{name:'member'})).status,403);assert.equal((await call(path)).status,200);}
   assert.equal((await call('/api/chat/news/connection/token',{name:'member',method:'POST',value:{}})).status,403);
+  assert.equal((await call('/api/chat/news/topics',{name:'member',method:'POST',value:custom})).status,403);
+  assert.equal((await call('/api/chat/news/topics',{method:'POST',value:custom,headers:{Origin:'https://evil.example'}})).status,403);
+  const created=await call('/api/chat/news/topics',{method:'POST',value:custom});assert.equal(created.status,201);const added=(await created.json()).topic;
+  assert((await (await call('/api/chat/news/topics')).json()).topics.some(t=>t.id===added.id));
+  const modified=await call('/api/chat/news/topics/'+added.id,{method:'PATCH',value:{...custom,revision:1,autoCollect:false}});assert.equal(modified.status,200);assert.equal((await modified.json()).topic.autoCollect,false);
+  assert.equal((await call('/api/chat/news/topics/'+added.id,{method:'PATCH',value:{...custom,revision:1}})).status,409);
   assert.equal((await call('/api/chat/news/connection/token',{method:'POST',value:{},headers:{Origin:'https://evil.example'}})).status,403);
   const issued=await call('/api/chat/news/connection/token',{method:'POST',value:{}});assert.equal(issued.status,201);const {token}=await issued.json();
   const headers={Authorization:'Bearer '+token,Accept:'application/json, text/event-stream','MCP-Protocol-Version':'2025-11-25'};

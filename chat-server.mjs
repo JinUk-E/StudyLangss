@@ -1,4 +1,4 @@
-import { createNewsStore, NEWS_TOPICS } from './lib/news-store.mjs';
+import { createNewsStore } from './lib/news-store.mjs';
 import { createNewsOAuth } from './lib/news-oauth.mjs';
 import { newsMcpResponse, supportedNewsProtocol } from './lib/news-mcp.mjs';
 import { startLibraryMaintenance } from './lib/library-maintenance.mjs';
@@ -174,7 +174,10 @@ const server = createServer(async (req, res) => {
     if (path === '/api/chat/models' && method === 'GET') return json(res, 200, { models: await upstream.models(AbortSignal.timeout(10000)) });
     if (path === '/api/chat/tts/voices' && method === 'GET') return json(res, 200, await tts.voices());
     if(path==='/api/chat/news'&&method==='GET')return json(res,200,{reports:news.list(new URL(req.url,'http://localhost').searchParams.get('topic')||'jpop')});
-    if(path==='/api/chat/news/topics'&&method==='GET')return json(res,200,{topics:NEWS_TOPICS});
+    if(path==='/api/chat/news/topics'&&method==='GET')return json(res,200,{topics:news.topics()});
+    if(path==='/api/chat/news/topics'&&method==='POST')return json(res,201,news.addTopic(await body(req)));
+    const topicMatch=path.match(/^\/api\/chat\/news\/topics\/(custom-[a-f0-9-]{36})$/);
+    if(topicMatch&&method==='PATCH')return json(res,200,news.updateTopic(topicMatch[1],await body(req)));
     const newsMatch=path.match(/^\/api\/chat\/news\/reports\/([a-f0-9-]{36})$/);
     if(newsMatch&&method==='GET'){const report=news.get(newsMatch[1]);assert(report,'리포트를 찾을 수 없습니다.',404);return json(res,200,{report});}
     if(path==='/api/chat/news/connection'&&method==='GET') {

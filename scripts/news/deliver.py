@@ -39,7 +39,7 @@ class CodexMCP:
             return message.get('result')
         raise TimeoutError('Codex RPC timed out: '+method)
     def initialize(self):
-        self.call('initialize',{'clientInfo':{'name':'starlight_news_delivery','version':'0.4.0'},'capabilities':{'experimentalApi':True}})
+        self.call('initialize',{'clientInfo':{'name':'starlight_news_delivery','version':'0.5.0'},'capabilities':{'experimentalApi':True}})
         self.process.stdin.write(b'{"method":"initialized","params":{}}\n')
         self.process.stdin.flush()
         # A transient MCP context only: no model turn, persistent conversation or credential export.
@@ -79,7 +79,7 @@ def main():
     if options.report:
         if options.report.stat().st_size>65536:raise ValueError('Report exceeds size limit')
         report=json.loads(options.report.read_text())
-        if not isinstance(report,dict) or report.get('topic') not in ['jpop','twins','milan','jobs']:raise ValueError('Invalid report topic')
+        if not isinstance(report,dict) or not isinstance(report.get('topic'),str):raise ValueError('Invalid report topic')
     client=CodexMCP()
     try:
         client.initialize()

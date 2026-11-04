@@ -8,12 +8,12 @@
     "developerName": "Jeong JinUk",
     "displayName": "별빛공방 소식 배달",
     "logo": "./assets/icon.png",
-    "longDescription": "확인한 출처가 있는 리포트를 J-POP 공연 알림, LG 트윈스·AC 밀란 소식 또는 주간 채용 소식 탭에 저장하고, 중복 전송 여부를 확인합니다. 개인 대화·일정·자료실 접근 권한은 없습니다.",
-    "shortDescription": "공연·LG·밀란·채용 소식을 별빛공방으로"
+    "longDescription": "페이지에서 등록한 관심 주제와 기본 공연·스포츠·채용 채널을 확인해 리포트를 저장하고 중복 전송 여부를 확인합니다. 개인 대화·일정·자료실 접근 권한은 없습니다.",
+    "shortDescription": "관심 주제 소식을 별빛공방으로"
   },
   "name": "starlight-news-bridge",
-  "version": "0.4.0",
-  "description": "ChatGPT에서 확인한 J-POP 공연 알림, LG 트윈스·AC 밀란 소식과 주간 채용 소식을 별빛공방의 개인 소식함으로 전달합니다.",
+  "version": "0.5.0",
+  "description": "확인한 출처가 있는 리포트를 별빛공방에 등록된 관심 주제의 개인 소식함으로 전달합니다.",
   "author": {
     "name": "Jeong JinUk",
     "email": "wlsdnr6822@gmail.com"
