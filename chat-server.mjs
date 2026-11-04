@@ -1,4 +1,5 @@
 import { createNewsStore, NEWS_TOPICS } from './lib/news-store.mjs';
+import { createNewsOAuth } from './lib/news-oauth.mjs';
 import { newsMcpResponse, supportedNewsProtocol } from './lib/news-mcp.mjs';
 import { startLibraryMaintenance } from './lib/library-maintenance.mjs';
 import { createTeamLibrary } from './lib/team-library.mjs';
@@ -36,6 +37,7 @@ const host = process.env.CHAT_HOST || '127.0.0.1', port = Number(process.env.CHA
 const active = new Map();
 const news=createNewsStore(stores.owner.db);
 const newsOrigin='https://starlightforge.duckdns.org';
+const newsOAuth=createNewsOAuth(stores.owner.db,{origin:newsOrigin,accounts:authenticate.accounts,authenticate});
 const library = createTeamLibrary(process.env.STELLA_LIBRARY_DIR || resolve(data,'team-library'));
 const libraryHealth = startLibraryHealth(library,resolve(data,'maintenance'));
 const maintenance = startLibraryMaintenance({library,store:stores.owner,upstream,directory:resolve(data,'maintenance'),model:process.env.STELLA_MAINTENANCE_MODEL||'qwen3.8:27b',isBusy:()=>active.size>0});
@@ -142,9 +144,10 @@ const server = createServer(async (req, res) => {
     if (runtimeHealth(req, res)) return;
     if (await servePwaAsset(req, res, root)) return;
     const path = new URL(req.url, 'http://localhost').pathname, method = req.method;
+    if(await newsOAuth.route(req,res))return;
     if(path==='/api/chat/bridge/mcp') {
       if(req.headers.origin && req.headers.origin!==newsOrigin)return json(res,403,{error:'Origin not allowed'});
-      if(!news.authenticate(req.headers.authorization,authenticate.accounts)){res.setHeader('WWW-Authenticate','Bearer realm="starlight-news"');return json(res,401,{error:'News connector authentication required'});}
+      if(!newsOAuth.authenticate(req.headers.authorization)&&!news.authenticate(req.headers.authorization,authenticate.accounts)){res.setHeader('WWW-Authenticate',newsOAuth.challenge);return json(res,401,{error:'News connector authentication required'});}
       if(method!=='POST'){res.setHeader('Allow','POST');return json(res,405,{error:'Stateless MCP uses POST'});}
       if(!supportedNewsProtocol(req.headers['mcp-protocol-version']))return json(res,400,{error:'Unsupported MCP protocol version'});
       const accept=req.headers.accept||'';
@@ -178,10 +181,11 @@ const server = createServer(async (req, res) => {
       let pluginUrl=null;try{const config=JSON.parse(await readFile(resolve(data,'news-plugin.json'),'utf8'));const url=new URL(config.pluginUrl);if(url.protocol==='https:'&&url.hostname==='chatgpt.com')pluginUrl=url.href;}catch{}
       const connection=news.connection();if(connection.enabled&&!authenticate.accounts.current({id:'owner',revision:connection.ownerRevision},'admin'))connection.enabled=false;
       delete connection.ownerRevision;
-      return json(res,200,{...connection,endpoint:newsOrigin+'/api/chat/bridge/mcp',pluginUrl});
+      const oauth=newsOAuth.status();
+      return json(res,200,{...connection,enabled:oauth.enabled||connection.enabled,oauthEnabled:oauth.enabled,method:'oauth',endpoint:newsOrigin+'/api/chat/bridge/mcp',pluginUrl});
     }
     if(path==='/api/chat/news/connection/token'&&method==='POST')return json(res,201,{token:news.issue(req.user.revision)});
-    if(path==='/api/chat/news/connection/token'&&method==='DELETE'){news.revoke();return json(res,200,{revoked:true});}
+    if(path==='/api/chat/news/connection/token'&&method==='DELETE'){news.revoke();newsOAuth.revoke();return json(res,200,{revoked:true});}
     const store = stores.get(req.user);
     if(path === '/api/chat/notices' && method === 'GET') {assert(req.user.id==='owner','소유자 전용 공지입니다.',403);return json(res,200,{notices:store.notices()});}
     if(path === '/api/chat/library' && method === 'GET') {

@@ -91,11 +91,11 @@ LaunchAgent 사용자가 해당 Git 원격을 fetch/push할 수 있어야 합니
 
 ChatGPT 예약 작업의 결과를 읽어오는 비공식 API나 세션 쿠키를 사용하지 않습니다. `integrations/starlight-news-bridge/`의 비공개 플러그인이 사용자가 지정한 결과를 서버로 보내는 방식입니다. 기존 예약의 시간·검색 조건·과거 결과는 자동으로 옮겨지지 않습니다.
 
-1. **소식 → ChatGPT 연결**에서 플러그인을 열고 연결 키를 발급합니다. 키는 발급 직후 한 번만 표시됩니다. 대화 본문에 넣지 말고 ChatGPT 플러그인의 API 키 연결 창에 입력합니다.
+1. 플러그인을 0.2.0 이상으로 업데이트하고 Codex MCP 설정에서 인증을 시작합니다. 브라우저에서 별빛공방 소유자로 로그인하고 소식 연결을 승인합니다. 연결 키를 복사할 필요가 없습니다.
 2. 기존 J-POP·LG 트윈스 예약 작업에 플러그인을 연결하고, 이 화면에서 복사한 채널별 전달 지시를 기존 검색 조건 뒤에 추가합니다. 첫 실행 결과가 실제 탭에 도착했는지 확인합니다.
-3. 연결 해제·키 재발급은 같은 화면에서 합니다. 재발급하면 이전 키는 즉시 무효입니다. 리포트는 보존됩니다.
+3. **소식 → ChatGPT 연결**에서 모든 기기의 연결을 해제할 수 있습니다. OAuth 권한과 수동 키는 즉시 무효화되며 리포트는 보존됩니다.
 
-어댑터 엔드포인트는 `https://starlightforge.duckdns.org/api/chat/bridge/mcp`이며 인증은 **Bearer API key**입니다. [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)의 stateless JSON 응답을 지원합니다. POST initialize/ping/tools/list/tools/call, 알림 202, GET·DELETE 405이며 Origin과 프로토콜 버전을 검증합니다. 별도 nginx 인증 해제나 새 포트 공개는 필요하지 않습니다.
+어댑터 엔드포인트는 `https://starlightforge.duckdns.org/api/chat/bridge/mcp`이며 인증은 **OAuth authorization code + S256 PKCE**입니다. 기존 수동 Bearer 키도 별도로 구성한 클라이언트에서는 사용할 수 있습니다. [MCP Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports)의 stateless JSON 응답을 지원합니다. POST initialize/ping/tools/list/tools/call, 알림 202, GET·DELETE 405이며 Origin과 프로토콜 버전을 검증합니다. 공개 OAuth discovery 경로만 기존 chat 서버로 프록시하며 소식 데이터 인증은 유지합니다. 자세한 연결·보안 정책은 [OAuth 운영 문서](docs/news-oauth.md)를 참고하세요.
 
 노출 도구는 `list_news_topics`, `publish_news_report`, `get_news_delivery_status` 세 개뿐입니다. 개인 일정·대화·자료실·서버 설정·쉘 도구는 없습니다. 리포트는 제목·본문·작성 기준일·실제 HTTPS 출처가 필요하며, `(topic, deliveryId)`로 중복 전송을 차단합니다. 같은 ID의 다른 본문은 충돌로 거절합니다. 링크는 서버에서 자동 요청하지 않고 화면에서 안전한 외부 링크로 표시합니다. HTML 본문은 실행하지 않습니다.
 

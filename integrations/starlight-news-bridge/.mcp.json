@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "starlight-news": {
+      "type": "streamable-http",
+      "url": "https://starlightforge.duckdns.org/api/chat/bridge/mcp",
+      "headers": {},
+      "extensions": {
+        "com.openai": {
+          "auth": {
+            "type": "oauth"
+          }
+        }
+      }
+    }
+  }
+}
