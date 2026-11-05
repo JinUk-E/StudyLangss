@@ -11,9 +11,14 @@ const preference = {
 };
 const notice = text => { $('#notice').textContent = text; };
 async function api(path, options = {}) {
-  const response = await fetch(`/api/chat${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
+  let response;
+  for(let attempt=0;attempt<3;attempt++) {
+    response = await fetch(`/api/chat${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } });
+    if(response.status!==429 || (options.method && options.method!=='GET') || attempt===2)break;
+    await new Promise(resolve=>setTimeout(resolve,700*(attempt+1)));
+  }
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `요청을 처리하지 못했습니다 (${response.status}).`);
+  if (!response.ok) { const error = new Error(data.error || `요청을 처리하지 못했습니다 (${response.status}).`); error.status = response.status; throw error; }
   return data;
 }
 function element(tag, text, className) {
@@ -248,6 +253,9 @@ $('#web-search').checked = preference.get('search') === 'true';
 await loadModels();
 try {
   await loadThreads(); const id = preference.get('thread');
-  if (id) await openThread(id).catch(() => { preference.set('thread', null); });
+  if (id) await openThread(id).catch(error => {
+    if (error.status === 404) { preference.set('thread', null); notice('이전 대화를 찾을 수 없어요. 대화 목록을 확인해 주세요.'); }
+    else notice('이전 대화를 불러오지 못했어요. 대화 기록은 보존되어 있으니 새로고침해 주세요.');
+  });
 } catch (error) { notice(error.message); }
 window.addEventListener('pagehide', () => speech.cancel());

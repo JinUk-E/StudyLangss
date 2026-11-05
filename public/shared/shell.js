@@ -69,7 +69,13 @@ function rememberedArea() {
   try { const area = sessionStorage.getItem(sessionHintKey); return Object.hasOwn(sessionAreas, area) ? area : null; } catch { return null; }
 }
 async function sessionUser(path, signal = controller.signal) {
-  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal });
+  let response;
+  for(let attempt=0;attempt<3;attempt++) {
+    response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', signal });
+    if(response.status!==429||attempt===2)break;
+    await new Promise(resolve=>setTimeout(resolve,700*(attempt+1)));
+    if(signal.aborted)throw new Error('계정 확인 중단');
+  }
   if (!response.ok) throw new Error('계정 확인 실패');
   const data = await response.json(); return data.user || null;
 }

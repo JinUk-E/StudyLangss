@@ -109,6 +109,17 @@ test('in-flight scrypt must recheck the account revision before admitting a requ
   assert.equal(await pending, false); assert.equal(res.status, 401); assert.equal(req.user, undefined);
 });
 
+test('parallel requests using identical credentials share verification instead of being rejected',async t=>{
+  const {auth}=await fixture(t);
+  const attempts=Array.from({length:12},()=>({req:request('owner-test',OWNER_PASSWORD),res:response()}));
+  const results=await Promise.all(attempts.map(({req,res})=>auth(req,res)));
+  assert(results.every(user=>user?.id==='owner'));
+  assert(attempts.every(({res})=>res.status!==429));
+  const invalid=Array.from({length:8},()=>({req:request('owner-test','wrong-password-2026'),res:response()}));
+  await Promise.all(invalid.map(({req,res})=>auth(req,res)));
+  assert(invalid.every(({res})=>res.status===401));
+});
+
 test('owner changes are restricted to setup and username history cannot be reassigned', async t => {
   const f = await fixture(t);
   const user = await f.auth.accounts.create({ username: 'reserved-name', password: USER_PASSWORD, permissions: ['chat'] });

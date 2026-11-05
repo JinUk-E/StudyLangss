@@ -45,7 +45,7 @@ function page({ section = 'home', pathname = '/', search = '', hash = '', storag
       requests.push({ path, ...options });
       if (path === '/api/portfolio/public') return { ok: true, json: async () => ({ profile: { name: '별빛공방' } }) };
       const result = await respond(path, options);
-      return { ok: result.ok !== false, json: async () => result };
+      return { ok: result.ok !== false, status:result.status??200, json: async () => result };
     }
   };
   if (rejectStorage) Object.defineProperty(context, 'sessionStorage', { get() { throw new Error('storage denied'); } });
@@ -140,4 +140,10 @@ test('private lookup failures never probe optional routes or keep a locally hint
   const p = page({ section: 'study', pathname: '/study/', storage: new Map([[hintKey, 'chat']]), respond: () => ({ ok: false }) }); await settle();
   assert.equal(p.user, null); assert.equal(p.body.dataset.accountRole, 'guest'); assert.equal(p.top.querySelector('.account-identity').textContent, '계정 확인 필요');
   assert.deepEqual(p.requests.filter(item => item.path !== '/api/portfolio/public').map(item => item.path), ['/api/me']);
+});
+
+test('temporary 429 during private session lookup is retried without treating it as logout',async()=>{
+  let attempts=0;const p=page({section:'chat',pathname:'/chat/',respond:path=>path==='/api/chat/me'&&++attempts===1?{ok:false,status:429}:{user:owner}});
+  await settle();assert.equal(p.events.length,0);p.timer(700);await settle();
+  assert.equal(attempts,2);assert.equal(p.user.id,'owner');assert.equal(p.body.dataset.accountRole,'admin');
 });
