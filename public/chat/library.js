@@ -11,6 +11,9 @@ export function mountLibrary(api,{newChat,setPrompt,notice,openThread}) {
     $('#library-controls').hidden=false;
     $('#library-state').textContent=available?`자료실 연결됨 · 공유 전송 대기 ${data.status.ahead??'?'}건`:'자료실 연결 설정이 필요합니다.';
     if(data.maintenance?.enabled)$('#library-state').textContent+=` · 매일 오전 8시 정제${data.maintenance.running?' 중':''}`;
+    const last=data.maintenance?.last, today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    const failed=Boolean(last?.error||last?.failed?.length);$('#library-retry').hidden=!(last?.day===today&&failed);$('#library-retry').disabled=Boolean(data.maintenance?.running);
+    if(failed)$('#library-state').textContent+=` · 최근 실패 ${last.failed?.length||0}건${last.error?' · 동기화 또는 실행 오류':''}`;
     if(data.health)$('#library-state').textContent+=` · 최근 점검 ${new Date(data.health.checkedAt).toLocaleString('ko-KR')}`;
   }
   async function drafts() {
@@ -49,6 +52,7 @@ export function mountLibrary(api,{newChat,setPrompt,notice,openThread}) {
   };
   $('#library-audit').onclick=async()=>{if(!project){report('먼저 프로젝트를 선택해 주세요.');return;}try {const data=await api('/library/audit?'+query());result.replaceChildren(el('p',data.note));report(`${data.documents}개 문서 · 확인할 항목 ${data.total}개${data.truncated?' · 일부 표시':''}`);for(const f of data.findings)result.append(el('p',`${f.path} · ${f.detail}`));}catch(e){report(e.message);}};
   $('#library-sync').onclick=async()=>{const b=$('#library-sync');b.disabled=true;report('Git 저장소를 동기화하고 있어요…');try{await api('/library/sync',{method:'POST',body:'{}'});report('최신 자료를 받고 저장한 기록을 공유했어요.');await refresh();}catch(e){report(e.message);}finally{b.disabled=false;}};
+  $('#library-retry').onclick=async()=>{const b=$('#library-retry');b.disabled=true;try{await api('/library/maintenance/retry',{method:'POST',body:'{}'});report('실패한 정제를 다시 시작했어요. 완료 결과는 스텔라 공지에서 확인해 주세요.');await refresh();}catch(e){report(e.message);b.disabled=false;}};
   window.addEventListener('stella-library',()=>open().catch(e=>notice(e.message)));
   return {init:async user=>{if(user.id==='owner'){await refresh();await notices();setInterval(()=>{if(!document.hidden)notices().catch(()=>{});},60000);}},project:()=>project,setProject(value){project=value||null;select.value=project||'';},refresh};
 }

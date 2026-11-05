@@ -195,6 +195,14 @@ const server = createServer(async (req, res) => {
       assert(req.user.id==='owner','자료실은 소유자 전용입니다.',403);
       return json(res,200,{connected:!!library,projects:library?.projects()||[],status:library?.status()||null,health:libraryHealth.latest(),maintenance:maintenance.status()});
     }
+    if(path === '/api/chat/library/maintenance/retry' && method === 'POST') {
+      assert(req.user.id==='owner','자료실은 소유자 전용입니다.',403);
+      const status=maintenance.status(), day=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      assert(status.enabled&&!status.running&&active.size===0,'스텔라가 사용 중이거나 자료실을 사용할 수 없습니다.',409);
+      assert(status.last?.day===day&&(status.last.error||status.last.failed?.length),'오늘 다시 처리할 실패 항목이 없습니다.',409);
+      maintenance.run(day,{retry:true}).catch(()=>{});
+      return json(res,202,{started:true});
+    }
     if(path.startsWith('/api/chat/library/')) {
       const lib=ownerLibrary(req.user), query=new URL(req.url,'http://localhost').searchParams;
       if(path==='/api/chat/library/search'&&method==='GET')return json(res,200,lib.search(validProject(query.get('project')),query.get('q')||''));

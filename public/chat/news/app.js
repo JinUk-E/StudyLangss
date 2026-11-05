@@ -1,7 +1,11 @@
 import { renderReport } from './report-format.js';
 const $=s=>document.querySelector(s),el=(tag,text)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;return n;};
 const labels={jpop:'J-POP 공연 알림',twins:'LG 트윈스 소식',milan:'AC 밀란 소식',jobs:'주간 채용 소식'};
-const artwork={jpop:['♫','LIVE & MUSIC'],twins:['⚾','TWINS CLUB'],milan:['⚽','ROSSONERI'],jobs:['⌘','NEXT CHAPTER']};
+const artwork={jpop:['♫','LIVE & MUSIC'],twins:['⚾','TWINS CLUB'],milan:['⚽','ROSSONERI'],jobs:['⌘','NEXT CHAPTER'],
+  'custom-db321561-abfc-4bbc-bacc-18bb5e119bef':['🎬','ANIME NEWS'],
+  'custom-bbcc5cb3-b922-4ccc-a12c-de766a74e1bf':['🎸','BOCCHI THE ROCK!'],
+  'custom-68b41f8f-aaee-44c1-8a94-4b229d3530e8':['◈','UNITY UPDATES'],
+  'custom-d6f2d31e-e8aa-4d99-8fcd-360a0a3d3afd':['◆','UNREAL ENGINE']};
 let reportGeneration=0,topicItems=[],editingTopic=null,topicRequestId=null,topicSaving=false;
 const params=new URLSearchParams(location.search);let topic=params.get('topic')||'jpop',generation=0,connected=false;
 async function api(path,options={}){const r=await fetch('/api/chat/news'+path,{...options,headers:{'Content-Type':'application/json',...options.headers},cache:'no-store'});const data=await r.json().catch(()=>({}));if(!r.ok)throw Error(data.error||'소식을 불러오지 못했습니다.');return data;}

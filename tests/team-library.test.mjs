@@ -70,9 +70,18 @@ test('daily 08:00 Korea maintenance creates linked notes and a private chat noti
   const worker=startLibraryMaintenance(opts);t.after(()=>worker.close());await worker.tick();assert.equal(generations,0);
   time=new Date('2026-11-04T23:00:00Z');await worker.tick();assert.equal(generations,2);assert.equal(store.notices().length,1);assert.equal(library.status().ahead,0);
   const announcement=store.messages(store.notices()[0].id)[0].content;assert.match(announcement,/정제 메모 2개/);assert.match(announcement,/동기화했어요/);
+  assert.match(announcement,/진행 상황은 원문에서 확인이 필요합니다/);assert.match(announcement,/자동 등록되지 않았어요/);
   await worker.tick();assert.equal(generations,2);
   worker.close();const restarted=startLibraryMaintenance(opts);t.after(()=>restarted.close());await restarted.tick();assert.equal(store.notices().length,1);
   time=new Date('2026-11-05T23:01:00Z');await restarted.tick();assert.equal(generations,2);assert.equal(store.notices().length,2);assert.match(store.messages(store.notices()[0].id)[0].content,/변경 없음 2개/);
+});
+test('retry repairs failed projects without regenerating successful notes or duplicating the notice',async t=>{
+  const {library,store,dir}=fixture(t);let fail=true,calls=0;
+  const upstream={async capabilities(){return [];},async *generate(){calls++;if(fail&&calls===1)throw Error('offline');yield {message:{content:'후속 작업 후보: 원문을 확인하세요.'}};}};
+  const worker=startLibraryMaintenance({library,store,upstream,directory:join(dir,'maintenance'),auto:false});t.after(()=>worker.close());
+  const first=await worker.run('2026-11-05');assert.equal(first.failed.length,1);assert.equal(first.saved.length,1);assert.equal(calls,2);
+  fail=false;const retried=await worker.run('2026-11-05',{retry:true});assert.equal(retried.failed.length,0);assert.equal(retried.saved.length,2);assert.equal(calls,3);assert.equal(store.notices().length,1);assert.match(store.messages(store.notices()[0].id)[0].content,/후속 작업 후보/);
+  await worker.run('2026-11-05',{retry:true});assert.equal(calls,3);
 });
 test('daily model failures publish a failure notice without inventing completed refinement',async t=>{
   const {library,store,dir}=fixture(t);const worker=startLibraryMaintenance({library,store,upstream:{async capabilities(){return [];},async *generate(){throw Error('offline');}},directory:join(dir,'maintenance'),auto:false});t.after(()=>worker.close());
