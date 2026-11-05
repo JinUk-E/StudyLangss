@@ -251,3 +251,14 @@ body[data-section=chat] #chat-settings-toggle{display:none}
   body[data-section=chat] .compose-bottom{margin-top:3px}
   body[data-section=chat] .footnote{display:none}
 }
+
+/* A home-screen app has no browser chrome; keep its navigation compact too. */
+@media (display-mode:standalone) and (max-width:700px){
+  body[data-section=chat]{--header-height:80px}
+  body[data-section=chat] .global-header{padding:0 12px 20px;gap:8px}
+  body[data-section=chat] .global-brand small{display:none}
+  body[data-section=chat] .account-summary{bottom:3px;right:12px}
+  body[data-section=chat] #sidebar{padding:5px 12px!important}
+  body[data-section=chat] .new-chat{min-height:36px;padding:7px 10px}
+  body[data-section=chat] #threads .thread{padding:8px 10px}
+}
