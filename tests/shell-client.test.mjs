@@ -22,7 +22,7 @@ class Element {
     if (!html.includes('global-brand')) return;
     const brand = new Element('a'); brand.className = 'global-brand'; this.append(brand);
     for (const section of ['home', 'chat', 'study']) { const anchor = new Element('a'); anchor.dataset.sectionTab = section; this.append(anchor); }
-    for (const className of ['account-identity', 'account-entry']) { const node = new Element('span'); node.className = className; this.append(node); }
+    for (const className of ['account-identity', 'account-entry', 'keep-login']) { const node = new Element('span'); node.className = className; this.append(node); }
     const name = new Element('span'); name.attributes['data-site-name'] = ''; this.append(name);
   }
   querySelectorAll(selector) {
@@ -81,11 +81,11 @@ test('private chat verifies me and stores only the area; public home restores se
   const storage = new Map();
   const chat = page({ section: 'chat', pathname: '/chat/', storage, respond: path => ({ user: path === '/api/chat/me' ? owner : null }) }); await settle();
   assert.equal(chat.user.id, 'owner'); assert.deepEqual([...storage], [[hintKey, 'chat']]);
-  assert.deepEqual(chat.requests.filter(item => item.path !== '/api/portfolio/public').map(item => item.path), ['/api/chat/me']);
+  assert.deepEqual(chat.requests.filter(item => item.path !== '/api/portfolio/public').map(item => item.path), ['/api/chat/me','/api/portfolio/session']);
   const home = page({ storage, respond: path => ({ user: path === '/api/chat/session' ? owner : null }) }); await settle();
   assert.equal(home.body.dataset.accountRole, 'admin'); assert.equal(home.body.dataset.accountChat, 'true'); assert.equal(home.body.dataset.accountStudy, 'true');
   assert.ok(home.links().includes('/admin/')); assert.ok(home.links().includes('/accounts/')); assert.ok(home.links().includes('/admin/system/'));
-  const lookups = home.requests.filter(item => item.path !== '/api/portfolio/public'); assert.equal(lookups[0].path, '/api/chat/session'); assert.equal(lookups.length, 3);
+  const lookups = home.requests.filter(item => item.path !== '/api/portfolio/public'); assert.equal(lookups[0].path, '/api/chat/session'); assert.equal(lookups.length, 4);
   for (const item of lookups) { assert.equal(item.credentials, 'same-origin'); assert.equal(item.cache, 'no-store'); }
   assert.equal(home.timers.size, 0);
 });

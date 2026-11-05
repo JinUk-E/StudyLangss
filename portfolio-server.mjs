@@ -99,7 +99,7 @@ const server = createServer(async (req, res) => {
       assert(store.project(path.split('/').pop())?.published, '공개된 프로젝트를 찾을 수 없습니다.', 404);
       asset = files.get('/');
     }
-    if (path === '/api/portfolio/session' && read) return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null });
+    if (path === '/api/portfolio/session' && read) return json(res, 200, { user: await authenticate(req, res, { optional: true }) || null, loginKept:authenticate.hasLogin(req) });
     const privateRoute = path.startsWith('/admin') || path === '/site/admin.js' || path.startsWith('/api/portfolio/') || path === '/app' || path.startsWith('/app/') || path === '/accounts' || path.startsWith('/accounts/');
     if (path === '/resume/' && !store.resume().published) {
       if (!await authenticate(req, res)) return;
@@ -107,9 +107,14 @@ const server = createServer(async (req, res) => {
     }
     if (path === '/api/portfolio/resume' && read && store.resume().published) return json(res, 200, { resume: store.resume(), ...await publicData() });
     if (privateRoute && !await authenticate(req, res)) return;
-    const memberRoute = path === '/app' || path.startsWith('/app/') || path === '/api/portfolio/me' || path.startsWith('/api/portfolio/push/');
+    const memberRoute = path === '/app' || path.startsWith('/app/') || path === '/api/portfolio/me' || path === '/api/portfolio/login-session' || path.startsWith('/api/portfolio/push/');
     if (privateRoute && !memberRoute && !requireAccess(req, res, 'admin')) return;
     sameOrigin(req);
+    if(path==='/api/portfolio/login-session'&&['POST','DELETE'].includes(method)) {
+      assert(typeof req.headers.origin==='string','요청 출처를 확인해 주세요.',403);
+      if(method==='POST')authenticate.keepLogin(req,res);else authenticate.clearLogin(req,res);
+      return json(res,200,{loginKept:method==='POST'});
+    }
     if (path === '/admin/system' && read) { res.writeHead(302, { Location: '/admin/system/' }); return res.end(); }
     if (path === '/api/portfolio/updates' && method === 'GET') return json(res, 200, await updater.status());
     const updateAction = path.match(/^\/api\/portfolio\/updates\/(check|apply)$/);

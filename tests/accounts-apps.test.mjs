@@ -118,6 +118,17 @@ test('path-scoped session probes never challenge and only return a live authenti
   }
 });
 
+test('persistent session works across chat and study and loses access immediately on account changes',async()=>{
+  const member=await accounts.create({username:'cookie-member',password:passwords.alice,permissions:['chat','study']});
+  const token='z'.repeat(43);accounts.createSession(member,token,Date.now()+60000);
+  const headers={Cookie:`__Host-starlight-session=${token}`};
+  assert.equal((await fetch(chat.base+'/api/chat/me',{headers})).status,200);
+  assert.equal((await fetch(study.base+'/api/me',{headers})).status,200);
+  await accounts.update(member.id,{permissions:['study']});
+  assert.equal((await fetch(chat.base+'/api/chat/me',{headers})).status,401);
+  assert.equal((await fetch(study.base+'/api/me',{headers})).status,401);
+});
+
 test('study stores isolate attempts, custom material, practice, backup and TTS source lookup', async () => {
   const owner = await data(study.base, 'owner', '/api/state');
   assert.equal(owner.settings.level, 'N2'); assert.equal(owner.stats.totalAnswered, 1);

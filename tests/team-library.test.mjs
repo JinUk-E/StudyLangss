@@ -73,7 +73,7 @@ test('daily 08:00 Korea maintenance creates linked notes and a private chat noti
   assert.match(announcement,/진행 상황은 원문에서 확인이 필요합니다/);assert.match(announcement,/자동 등록되지 않았어요/);
   await worker.tick();assert.equal(generations,2);
   worker.close();const restarted=startLibraryMaintenance(opts);t.after(()=>restarted.close());await restarted.tick();assert.equal(store.notices().length,1);
-  time=new Date('2026-11-05T23:01:00Z');await restarted.tick();assert.equal(generations,2);assert.equal(store.notices().length,2);assert.match(store.messages(store.notices()[0].id)[0].content,/변경 없음 2개/);
+  time=new Date('2026-11-05T23:01:00Z');await restarted.tick();assert.equal(generations,2);assert.equal(store.notices().length,1);assert.match(store.messages(store.notices()[0].id).at(-1).content,/변경 없음 2개/);
 });
 test('retry repairs failed projects without regenerating successful notes or duplicating the notice',async t=>{
   const {library,store,dir}=fixture(t);let fail=true,calls=0;
@@ -100,5 +100,19 @@ test('notice retry updates its own announcement and preserves user replies; regi
   const opts={library,store,upstream:{},directory:join(dir,'maintenance'),now:()=>new Date('2026-11-04T22:00:00Z')};
   const first=startLibraryMaintenance(opts);first.close();const second=startLibraryMaintenance(opts);second.close();assert.equal(store.notices().length,1);
   const thread=store.announce('fixture','공지','처음');const answer=store.begin(thread.id,'사용자 답변','fixture');store.finish(answer,'응답','complete',[]);store.announce('fixture','공지','갱신');
-  const messages=store.messages(thread.id);assert.equal(messages.length,3);assert.equal(messages[0].content,'갱신');assert.equal(messages[1].content,'사용자 답변');
+  const messages=store.messages(thread.id);assert.equal(messages.length,4);assert.equal(messages[1].content,'갱신');assert.equal(messages[2].content,'사용자 답변');
+});
+test('old notice threads merge with replies intact and each daily retry updates only its own message',t=>{
+  const dir=mkdtempSync(join(tmpdir(),'stella-notices-'));t.after(()=>rmSync(dir,{recursive:true,force:true}));
+  let store=createChatStore(dir);const a=store.create('stella-notice'),b=store.create('stella-notice');
+  const insert=store.db.prepare('INSERT INTO messages VALUES (?,?,?,?,?,?,?,?)');
+  insert.run('old-a',a.id,'assistant','첫 공지','complete','[]','스텔라 자료실 관리','2026-11-01T00:00:00Z');
+  insert.run('reply-a',a.id,'user','사용자 답변','complete','[]','model','2026-11-01T01:00:00Z');
+  insert.run('old-b',b.id,'assistant','둘째 공지','complete','[]','스텔라 자료실 관리','2026-11-02T00:00:00Z');
+  store.db.prepare('INSERT INTO assistant_notices(noticeKey,threadId) VALUES (?,?)').run('library:1',a.id);
+  store.db.prepare('INSERT INTO assistant_notices(noticeKey,threadId) VALUES (?,?)').run('library:2',b.id);
+  store.db.close();store=createChatStore(dir);t.after(()=>store.db.close());
+  assert.equal(store.notices().length,1);const thread=store.notices()[0];assert.deepEqual(store.messages(thread.id).map(m=>m.content),['첫 공지','사용자 답변','둘째 공지']);
+  store.announce('library:2','변경','둘째 수정');store.announce('library:3','새 공지','셋째 공지');
+  assert.deepEqual(store.messages(thread.id).map(m=>m.content),['첫 공지','사용자 답변','둘째 수정','셋째 공지']);assert.equal(store.notices().length,1);
 });

@@ -20,6 +20,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .account-summary{margin-left:auto;min-width:0;max-width:250px;display:flex;align-items:center;gap:10px;color:var(--workspace-muted);font-size:12px}
 .account-identity{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .account-entry{padding:5px 10px;border-radius:9px;background:var(--workspace-accent-soft);color:var(--workspace-accent);text-decoration:none;font-weight:650;white-space:nowrap}
+.keep-login{flex:none;padding:4px 8px;border:1px solid var(--workspace-line);border-radius:9px;background:var(--workspace-accent-soft);color:var(--workspace-accent);font:inherit;font-weight:650;white-space:nowrap;cursor:pointer}
 .section-sidebar,.sidebar,#sidebar{position:fixed!important;top:calc(var(--header-height) + 20px)!important;left:16px!important;right:auto!important;bottom:20px!important;width:calc(var(--sidebar-width) - 32px)!important;height:auto!important;display:flex!important;flex-direction:column!important;padding:24px 13px!important;border:1px solid var(--workspace-line)!important;border-radius:22px!important;background:white!important;color:var(--workspace-ink)!important;box-shadow:var(--workspace-shadow)!important;z-index:30!important}
 .sidebar-heading,.sidebar-label{margin:0 12px 22px!important;color:var(--workspace-muted)!important;font-size:11px!important;font-weight:650;letter-spacing:.5px!important}
 .section-sidebar nav,.sidebar nav{display:flex;flex-direction:column;gap:6px;height:auto}

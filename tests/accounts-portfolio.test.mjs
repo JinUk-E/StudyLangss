@@ -36,7 +36,7 @@ after(async () => {
 
 test('account management is owner-only while session probes do not challenge public visitors', async () => {
   const anonymous = await call('/api/portfolio/session', {}, null);
-  assert.equal(anonymous.status, 200); assert.equal(anonymous.headers.get('www-authenticate'), null); assert.deepEqual(await anonymous.json(), { user: null });
+  assert.equal(anonymous.status, 200); assert.equal(anonymous.headers.get('www-authenticate'), null); assert.deepEqual(await anonymous.json(), { user: null,loginKept:false });
   for (const path of ['/accounts/', '/accounts/app.js', '/accounts/styles.css', '/api/portfolio/accounts']) {
     assert.equal((await call(path, {}, null)).status, 401, path);
     assert.equal((await call(path, {}, 'study-guest')).status, 403, path);
@@ -52,6 +52,21 @@ test('account management is owner-only while session probes do not challenge pub
   assert.equal((await call('/api/portfolio/accounts/owner', mutate('PATCH', { enabled: false }))).status, 403);
   const accounts = await json('/api/portfolio/accounts');
   for (const key of ['password', 'hash', 'salt', 'credentials']) assert.ok(!JSON.stringify(accounts).includes(`"${key}"`));
+});
+
+test('persistent login is opt-in, origin protected, revocable and follows account revisions',async()=>{
+  const user=(await json('/api/portfolio/accounts',mutate('POST',{username:'session-guest',password,permissions:['chat']}))).account;
+  assert.equal((await call('/api/portfolio/login-session',{method:'POST'},'session-guest')).status,403);
+  assert.equal((await call('/api/portfolio/login-session',{method:'POST',headers:{Origin:'https://evil.example'}},'session-guest')).status,403);
+  const issued=await call('/api/portfolio/login-session',{method:'POST',headers:{Origin:base}},'session-guest');assert.equal(issued.status,200);
+  const cookie=issued.headers.get('set-cookie');assert.match(cookie,/HttpOnly/);assert.match(cookie,/Secure/);assert.match(cookie,/SameSite=Lax/);assert.match(cookie,/Max-Age=2592000/);
+  const cookieHeader=cookie.split(';')[0];const status=await call('/api/portfolio/session',{headers:{Cookie:cookieHeader}},null);
+  assert.equal((await status.json()).user.id,user.id);
+  await json(`/api/portfolio/accounts/${user.id}`,mutate('PATCH',{permissions:['study']}));
+  assert.equal((await (await call('/api/portfolio/session',{headers:{Cookie:cookieHeader}},null)).json()).user,null);
+  const second=await call('/api/portfolio/login-session',{method:'POST',headers:{Origin:base}},'session-guest');const secondCookie=second.headers.get('set-cookie').split(';')[0];
+  assert.equal((await call('/api/portfolio/login-session',{method:'DELETE',headers:{Origin:base,Cookie:secondCookie}},null)).status,200);
+  assert.equal((await (await call('/api/portfolio/session',{headers:{Cookie:secondCookie}},null)).json()).user,null);
 });
 
 test('guest accounts cannot open private resume, unpublished images, or edit public content', async () => {
@@ -90,7 +105,7 @@ test('permission changes, suspension and password resets apply to cached HTTP cr
   assert.equal((await call('/api/portfolio/me', {}, 'chat-guest')).status, 200);
   await json(`/api/portfolio/accounts/${chat.id}`, mutate('PATCH', { enabled: false }));
   assert.equal((await call('/api/portfolio/me', {}, 'chat-guest')).status, 401);
-  const publicProbe = await call('/api/portfolio/session', {}, 'chat-guest'); assert.equal(publicProbe.headers.get('www-authenticate'), null); assert.deepEqual(await publicProbe.json(), { user: null });
+  const publicProbe = await call('/api/portfolio/session', {}, 'chat-guest'); assert.equal(publicProbe.headers.get('www-authenticate'), null); assert.deepEqual(await publicProbe.json(), { user: null,loginKept:false });
   const reset = 'replacement-password-only-2026';
   await json(`/api/portfolio/accounts/${chat.id}`, mutate('PATCH', { enabled: true, permissions: ['study', 'chat'], password: reset }));
   assert.equal((await call('/api/portfolio/me', {}, 'chat-guest')).status, 401);

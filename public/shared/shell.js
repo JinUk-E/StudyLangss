@@ -2,7 +2,7 @@ import '/pwa/register.js';
 
 const section = document.body.dataset.section || 'home';
 const top = document.createElement('header'); top.className = 'global-header';
-top.innerHTML = `<a class="global-brand" href="/"><span class="brand-monogram" aria-hidden="true"><img src="/pwa/starlight-mark.png" alt="" width="192" height="192"></span><span><span data-site-name>별빛공방</span><small>개인 작업실</small></span></a><nav class="global-tabs" aria-label="주 영역"><a href="/" data-section-tab="home">홈</a><a href="/chat/" data-section-tab="chat">AI 대화</a><a href="/study/" data-section-tab="study">학습</a><a href="/chat/news/" data-section-tab="news" hidden>소식</a></nav><div class="account-summary" aria-label="현재 계정"><span class="account-identity" role="status">계정 확인 중</span><a class="account-entry" href="/app/" hidden>로그인</a></div>`;
+top.innerHTML = `<a class="global-brand" href="/"><span class="brand-monogram" aria-hidden="true"><img src="/pwa/starlight-mark.png" alt="" width="192" height="192"></span><span><span data-site-name>별빛공방</span><small>개인 작업실</small></span></a><nav class="global-tabs" aria-label="주 영역"><a href="/" data-section-tab="home">홈</a><a href="/chat/" data-section-tab="chat">AI 대화</a><a href="/study/" data-section-tab="study">학습</a><a href="/chat/news/" data-section-tab="news" hidden>소식</a></nav><div class="account-summary" aria-label="현재 계정"><span class="account-identity" role="status">계정 확인 중</span><button class="keep-login" type="button" hidden>로그인 유지</button><a class="account-entry" href="/app/" hidden>로그인</a></div>`;
 document.body.prepend(top);
 // Re-selecting home should not reload every module, image and session lookup.
 // Keep ordinary navigation (including query/hash cleanup and modified clicks).
@@ -46,10 +46,17 @@ function applyUser(user) {
   if (user) {
     const permissions = user.isAdmin ? '관리자' : [user.permissions?.includes('study') && '학습', user.permissions?.includes('chat') && 'AI 대화'].filter(Boolean).join(' · ') || '권한 없음';
     identity.textContent = `${user.username} · ${permissions}`; identity.title = `${user.username} · ${permissions}`; entry.hidden = true;
-  } else { identity.textContent = '공개 페이지'; entry.hidden = false; }
+    const keep=top.querySelector('.keep-login');keep.hidden=false;keep.disabled=true;keep.title='이 브라우저에서 30일 동안 로그인 유지';
+    fetch('/api/portfolio/session',{credentials:'same-origin',cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{keep.dataset.kept=String(Boolean(data?.loginKept));keep.textContent=data?.loginKept?'유지 해제':'로그인 유지';}).catch(()=>{}).finally(()=>{keep.disabled=false;});
+  } else { identity.textContent = '공개 페이지'; entry.hidden = false; top.querySelector('.keep-login').hidden=true; }
   homeMenu(user);
   window.dispatchEvent(new CustomEvent('starlight:session', { detail: { user } }));
 }
+top.querySelector('.keep-login').addEventListener('click',async event=>{
+  const button=event.currentTarget,kept=button.dataset.kept==='true';button.disabled=true;
+  try{const response=await fetch('/api/portfolio/login-session',{method:kept?'DELETE':'POST',credentials:'same-origin'});if(!response.ok)throw Error();const result=await response.json();button.dataset.kept=String(result.loginKept);button.textContent=result.loginKept?'유지 해제':'로그인 유지';button.title=result.loginKept?'이 브라우저의 로그인 유지를 해제':'이 브라우저에서 30일 동안 로그인 유지';}
+  catch{button.title='설정을 저장하지 못했어요. 다시 시도해 주세요.';button.textContent='다시 시도';}finally{button.disabled=false;}
+});
 homeMenu(null);
 const controller = new AbortController();
 const timer = setTimeout(() => controller.abort(), 10000);
