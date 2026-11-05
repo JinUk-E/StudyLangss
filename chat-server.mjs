@@ -1,4 +1,5 @@
 import { createNewsStore } from './lib/news-store.mjs';
+import { generateCandidates } from './lib/today-brief.mjs';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createNewsOAuth } from './lib/news-oauth.mjs';
@@ -40,6 +41,7 @@ const active = new Map();
 const news=createNewsStore(stores.owner.db);
 const execFileAsync=promisify(execFile);
 let naverMailRequest=null;
+let briefingRequest=null;
 const newsOrigin='https://starlightforge.duckdns.org';
 const newsOAuth=createNewsOAuth(stores.owner.db,{origin:newsOrigin,accounts:authenticate.accounts,authenticate});
 const library = createTeamLibrary(process.env.STELLA_LIBRARY_DIR || resolve(data,'team-library'));
@@ -205,6 +207,14 @@ const server = createServer(async (req, res) => {
     if(path==='/api/chat/news/connection/token'&&method==='POST')return json(res,201,{token:news.issue(req.user.revision)});
     if(path==='/api/chat/news/connection/token'&&method==='DELETE'){news.revoke();newsOAuth.revoke();return json(res,200,{revoked:true});}
     const store = stores.get(req.user);
+    if(path==='/api/chat/today-brief/candidates'&&method==='POST') {
+      assert(req.user.id==='owner','타임라인 브리핑은 소유자 전용입니다.',403);
+      assert(!briefingRequest,'이미 타임라인을 확인하고 있습니다. 잠시 후 다시 시도해 주세요.',409);
+      assert(active.size===0&&!maintenance.status().running,'스텔라가 다른 작업을 처리하고 있습니다. 잠시 후 다시 시도해 주세요.',409);
+      const model=process.env.STELLA_MAINTENANCE_MODEL||'qwen3.8:27b';
+      briefingRequest=generateCandidates({library,upstream,model,signal:AbortSignal.timeout(180000)});
+      try{return json(res,200,await briefingRequest);}finally{briefingRequest=null;}
+    }
     if(path === '/api/chat/notices' && method === 'GET') {assert(req.user.id==='owner','소유자 전용 공지입니다.',403);return json(res,200,{notices:store.notices()});}
     if(path === '/api/chat/library' && method === 'GET') {
       assert(req.user.id==='owner','자료실은 소유자 전용입니다.',403);

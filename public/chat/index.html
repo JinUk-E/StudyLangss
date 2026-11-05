@@ -39,6 +39,7 @@
       <p class="footnote">AI 답변은 틀릴 수 있어요. 웹 검색을 켜면 질문의 검색어가 외부 검색 서비스로 전달됩니다.</p>
     </div>
   </main>
+<dialog id="today-dialog" aria-labelledby="today-heading"><div class="planner-heading"><div><h2 id="today-heading">오늘의 브리핑</h2><p>한국 시간 · 개인 일정과 AI-Team 타임라인</p></div><button id="close-today" type="button">닫기</button></div><div id="today-plans" aria-live="polite"></div><section class="today-candidates"><h3>프로젝트에서 확인할 일</h3><p>스텔라가 타임라인 일부를 로컬 모델로 살펴봅니다. 후보는 확인 전까지 저장되지 않아요.</p><button id="find-candidates" type="button">타임라인에서 후보 찾기</button><p id="candidate-status" role="status" aria-live="polite"></p><div id="candidate-list"></div></section></dialog>
 <dialog id="planner-dialog" aria-labelledby="planner-heading">
   <div class="planner-heading"><div><h2 id="planner-heading">나의 일정·할 일</h2><p>한국 시간 기준 · 별빛공방에 저장됩니다.</p></div><button id="new-plan" type="button">추가</button><button id="close-planner" type="button" aria-label="일정 창 닫기">닫기</button></div>
   <div class="planner-columns"><section class="planner-form-section"><h3 id="plan-form-title">새 일정·할 일</h3>

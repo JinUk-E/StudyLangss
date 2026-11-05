@@ -58,7 +58,46 @@ export function mountPlanner(api, setPrompt) {
   $('#new-plan').onclick=()=>{reset();$('#plan-form-title').scrollIntoView({block:'start'});$('#plan-title').focus();};
   $('#plan-filter').onchange=refresh;$('#plan-search-form').onsubmit=e=>{e.preventDefault();refresh();};$('#plan-kind').onchange=kindFields;
   $('#plan-edit-cancel').onclick=reset;$('#plan-form').oninput=()=>{saveKey=null;};
-  $('#daily-brief').onclick=()=>setPrompt('오늘 일정과 기한이 지난 할 일을 확인해서 브리핑해 줘. 우선순위도 같이 정리해 줘.');
+  const todayDialog=$('#today-dialog');
+  $('#close-today').onclick=()=>todayDialog.close();
+  $('#daily-brief').onclick=async()=>{
+    todayDialog.showModal();const target=$('#today-plans');target.replaceChildren(el('p','일정과 할 일을 확인하고 있어요…'));
+    try{
+      const day=new Intl.DateTimeFormat('en-CA',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const start=new Date(`${day}T00:00:00+09:00`),end=new Date(start.getTime()+86400000);
+      const [events,tasks]=await Promise.all([api('/plans?'+new URLSearchParams({kind:'event',from:start.toISOString(),to:end.toISOString()})),api('/plans?kind=task')]);
+      target.replaceChildren();const eventHeading=el('h3',`오늘 일정 · ${events.total}건`);target.append(eventHeading);
+      if(!events.items.length)target.append(el('p','오늘 예정된 일정이 없어요.'));
+      for(const item of events.items.slice(0,8)){const row=el('div',undefined,'today-row');row.append(el('strong',item.title),el('p',planTime(item)));target.append(row);}
+      if(events.total>8)target.append(el('p','일부 일정만 표시했어요. 일정·할 일에서 전체를 확인해 주세요.'));
+      const due=tasks.items.filter(p=>p.dueAt&&Date.parse(p.dueAt)<end.getTime());
+      target.append(el('h3',`오늘까지 할 일 · ${due.length}${tasks.truncated?'+':''}건`));
+      if(!due.length)target.append(el('p','오늘까지 마감인 할 일이 없어요.'));
+      for(const item of due.slice(0,8)){const row=el('div',undefined,'today-row');row.append(el('strong',item.title),el('p',`${planTime(item)}${Date.parse(item.dueAt)<Date.now()?' · 기한 지남 · 우선 확인':' · 오늘 마감'}`));target.append(row);}
+      if(due.length>8||tasks.truncated)target.append(el('p','일부 항목만 표시했어요. 일정·할 일에서 전체를 확인해 주세요.'));
+      const upcoming=tasks.items.filter(p=>p.dueAt&&Date.parse(p.dueAt)>=end.getTime()&&Date.parse(p.dueAt)<end.getTime()+6*86400000);
+      target.append(el('h3',`가까운 마감 · ${upcoming.length}${tasks.truncated?'+':''}건`));
+      if(!upcoming.length)target.append(el('p',tasks.truncated?'조회 한도로 일부 마감을 확인하지 못했어요.':'앞으로 6일 동안 마감인 할 일이 없어요.'));
+      for(const item of upcoming.slice(0,5)){const row=el('div',undefined,'today-row');row.append(el('strong',item.title),el('p',planTime(item)));target.append(row);}
+      if(upcoming.length>5)target.append(el('p','일부 항목만 표시했어요. 일정·할 일에서 전체를 확인해 주세요.'));
+    }catch(error){target.replaceChildren(el('p',`일정을 불러오지 못했어요: ${error.message}`));}
+  };
+  $('#find-candidates').onclick=async()=>{
+    const button=$('#find-candidates'),status=$('#candidate-status'),list=$('#candidate-list');button.disabled=true;status.textContent='로컬 모델로 타임라인을 확인하고 있어요. 시간이 조금 걸릴 수 있어요…';list.replaceChildren();
+    try {
+      const result=await api('/today-brief/candidates',{method:'POST',body:'{}'});
+      if(!result.connected){status.textContent='AI-Team 자료실이 연결되지 않았어요.';return;}
+      status.textContent=`타임라인 ${result.checked||0}개 확인 · 후보 ${result.candidates.length}개${result.truncated?' · 최근 20개만 확인':''}${result.failed.length?` · 읽기 실패 ${result.failed.length}개`:''}`;
+      if(!result.candidates.length)list.append(el('p','확인한 범위에서 조건에 맞는 후보를 만들지 못했어요. 원문을 살펴보거나 다시 시도해 주세요.'));
+      for(const candidate of result.candidates){
+        const row=el('article',undefined,'today-candidate');row.append(el('small',`${candidate.project} · ${candidate.path}`),el('h4',candidate.title),el('blockquote',candidate.evidence));
+        const add=el('button','할 일로 검토'),source=el('button','원문 보기');add.type=source.type='button';
+        add.onclick=()=>{todayDialog.close();reset();$('#plan-kind').value='task';kindFields();$('#plan-title').value=candidate.title;$('#plan-notes').value=`AI-Team ${candidate.project}/${candidate.path}\n근거: ${candidate.evidence}`;dialog.showModal();notify('내용을 확인하고 저장을 눌러 주세요. 마감은 직접 선택할 수 있어요.');$('#plan-title').focus();};
+        source.onclick=async()=>{source.disabled=true;try{const doc=await api('/library/read?'+new URLSearchParams({project:candidate.project,path:candidate.path,tail:'true'}));let pre=row.querySelector('pre');if(!pre){pre=el('pre');row.append(pre);}pre.textContent=(doc.truncated?'일부 발췌\n':'')+doc.text;}catch(error){status.textContent=error.message;}finally{source.disabled=false;}};
+        row.append(add,source);list.append(row);
+      }
+    }catch(error){status.textContent=`타임라인 후보를 만들지 못했어요: ${error.message}`;}finally{button.disabled=false;}
+  };
   form.onsubmit=async event=>{
     event.preventDefault();const button=$('#plan-submit');button.disabled=true;notify('');
     try {
