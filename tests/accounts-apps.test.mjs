@@ -226,7 +226,7 @@ test('planner APIs isolate accounts, require chat permission, validate edits and
 
 test('shared library and private maintenance notices are owner-only, including forged project selection',async()=>{
   assert.equal((await fetch(chat.base+'/api/chat/library')).status,401);
-  for(const path of ['/api/chat/library','/api/chat/library/search?project=Game','/api/chat/library/drafts?project=Game','/api/chat/notices'])assert.equal((await call(chat.base,'alice',path)).status,403,path);
+  for(const path of ['/api/chat/library','/api/chat/library/search?project=Game','/api/chat/library/drafts?project=Game','/api/chat/notices','/api/chat/news/naver-mail'])assert.equal((await call(chat.base,'alice',path)).status,403,path);
   assert.equal((await call(chat.base,'alice','/api/chat/library/sync','POST',{})).status,403);
   assert.equal((await call(chat.base,'alice','/api/chat/threads','POST',{model:'test-model',project:'Game'})).status,403);
   assert.equal((await data(chat.base,'owner','/api/chat/library')).connected,false);

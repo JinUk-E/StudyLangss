@@ -1,4 +1,6 @@
 import { createNewsStore } from './lib/news-store.mjs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createNewsOAuth } from './lib/news-oauth.mjs';
 import { newsMcpResponse, supportedNewsProtocol } from './lib/news-mcp.mjs';
 import { startLibraryMaintenance } from './lib/library-maintenance.mjs';
@@ -36,6 +38,8 @@ const upstream = createUpstream({ ollama: localEndpoint(process.env.CHAT_OLLAMA_
 const host = process.env.CHAT_HOST || '127.0.0.1', port = Number(process.env.CHAT_PORT || 3211);
 const active = new Map();
 const news=createNewsStore(stores.owner.db);
+const execFileAsync=promisify(execFile);
+let naverMailRequest=null;
 const newsOrigin='https://starlightforge.duckdns.org';
 const newsOAuth=createNewsOAuth(stores.owner.db,{origin:newsOrigin,accounts:authenticate.accounts,authenticate});
 const library = createTeamLibrary(process.env.STELLA_LIBRARY_DIR || resolve(data,'team-library'));
@@ -175,6 +179,17 @@ const server = createServer(async (req, res) => {
     if (path === '/api/chat/tts/voices' && method === 'GET') return json(res, 200, await tts.voices());
     if(path==='/api/chat/news'&&method==='GET')return json(res,200,{reports:news.list(new URL(req.url,'http://localhost').searchParams.get('topic')||'jpop')});
     if(path==='/api/chat/news/topics'&&method==='GET')return json(res,200,{topics:news.topics()});
+    if(path==='/api/chat/news/naver-mail'&&method==='GET') {
+      try {
+        if(!naverMailRequest)naverMailRequest=execFileAsync('/usr/bin/python3',[resolve(root,'scripts/news/naver_mail.py'),'collect'],{timeout:110000,maxBuffer:128*1024}).finally(()=>{naverMailRequest=null;});
+        const {stdout}=await naverMailRequest;
+        const result=JSON.parse(stdout);return json(res,200,result);
+      } catch(error) {
+        let message='네이버 메일 조회에 실패했습니다. 연결 설정을 확인해 주세요.';
+        try {const value=JSON.parse(error.stdout);if(typeof value.error==='string')message=value.error;}catch{}
+        return json(res,502,{error:message});
+      }
+    }
     if(path==='/api/chat/news/topics'&&method==='POST')return json(res,201,news.addTopic(await body(req)));
     const topicMatch=path.match(/^\/api\/chat\/news\/topics\/(custom-[a-f0-9-]{36})$/);
     if(topicMatch&&method==='PATCH')return json(res,200,news.updateTopic(topicMatch[1],await body(req)));

@@ -2,6 +2,7 @@ body[data-section=news]{padding-top:var(--header-height)}.news-shell{max-width:1
 @media(max-width:700px){.news-shell{padding:25px 18px 50px}.news-heading{align-items:flex-start;gap:10px}.news-heading h1{font-size:27px}.news-heading>div>p:last-child{font-size:12px;max-width:220px}.news-heading>button{padding:9px;font-size:11px}.topic-tabs{gap:10px;margin:20px 0 28px}.topic-tabs button{padding:16px 12px;gap:10px;flex-direction:column;align-items:flex-start}.topic-tabs strong{font-size:14px}.topic-icon{width:40px;height:40px;font-size:23px;border-radius:13px}.report-grid{grid-template-columns:1fr}.report-card{padding:20px}dialog{padding:20px;max-height:90dvh}#report-title{font-size:21px}.dialog-heading h2{font-size:20px}.global-tabs a{padding-inline:13px}}
 
 .topic-tabs button[data-topic=jobs][aria-selected=true]{border-color:#95b7ad;background:linear-gradient(115deg,#e5f2ec,#fff8f5)}
+.mail-result{border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0;background:#fffdfb}.mail-result p{margin:7px 0;color:var(--muted);overflow-wrap:anywhere}.mail-result strong{overflow-wrap:anywhere}#naver-mail-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere}#naver-mail-dialog .news-actions{display:flex;gap:15px;align-items:center;flex-wrap:wrap}
 @media(max-width:700px){.topic-tabs{grid-template-columns:1fr}.topic-tabs button{flex-direction:row;align-items:center}.topic-tabs strong{font-size:15px}}
 
 /* A whole card is one keyboard- and touch-accessible news entry. */
