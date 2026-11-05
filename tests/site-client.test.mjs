@@ -136,7 +136,7 @@ test('project details offer the Windows ZIP as a download while preserving norma
 test('verified games have a play badge and an internal player action while ordinary projects keep their existing flow', async () => {
   const projects = [...webGames.map(game => project(game.projectId)), project('not-published-as-web')];
   const p = await page(appSource, { profile, projects });
-  assert.equal(p.node('#projects').querySelectorAll('.project-web-badge').length, 2);
+  assert.equal(p.node('#projects').querySelectorAll('.project-web-badge').length, webGames.length);
   const source = (await load('shared')).replace(/^export /gm, '');
   const context = vm.createContext({ URL, webGameForProject, webPlayPath, document: { createElement: tag => new Element(tag), createDocumentFragment: () => new Element('fragment') } });
   vm.runInContext(`${source}\nthis.details = projectDetails;`, context);

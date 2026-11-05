@@ -113,7 +113,7 @@ test('group selection preserves legacy genre, old-client updates, visibility and
   } finally { await call(`/api/portfolio/projects/${id}`, { method: 'DELETE' }); }
   const isolated = join(directory, 'groups'); let store = createPortfolioStore(isolated);
   const counts = store.projects().reduce((value, project) => { const group = projectGroup(project); value[group] = (value[group] || 0) + 1; return value; }, {});
-  assert.deepEqual(counts, { games: 6, learning: 1, tools: 1, web: 1 });
+  assert.deepEqual(counts, { games: 7, learning: 1, tools: 2, web: 1 });
   const legacy = store.projects().find(value => value.id === webGames[0].projectId);
   assert.equal(legacy.group, undefined); assert.equal(projectGroup(legacy), 'games');
   store.saveProject({ ...legacy, group: 'web', title: '수동으로 분류한 작품' }, legacy.id); store.db.close();
@@ -177,11 +177,11 @@ test('resume defaults public but deliberate private settings remain enforced and
 
 test('starter and career content is seeded once and user edits and deletions survive restart', () => {
   const isolated = join(directory, 'content-migration'); let store = createPortfolioStore(isolated);
-  assert.equal(store.projects().length, starterProjects.length + careerProjects.length); assert.ok(store.profile().intro.length > 20);
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 2); assert.ok(store.profile().intro.length > 20);
   assert.deepEqual(store.profile(), profileInput(careerProfile));
   assert.deepEqual(store.resume(), resumeInput(careerResume));
   assert.equal(store.resume().published, true);
-  assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, careerAssets.length);
+  assert.equal(store.db.prepare('SELECT COUNT(*) count FROM images').get().count, careerAssets.length + 1);
   for (const asset of careerAssets) assert.ok(store.image(asset.path).content.length > 0);
   for (const project of store.projects()) for (const path of [project.cover, ...project.gallery].filter(Boolean)) assert.ok(store.publicImage(path));
   const id = careerProjects[0].id, editedId = careerProjects[1].id;
@@ -189,7 +189,7 @@ test('starter and career content is seeded once and user edits and deletions sur
   store.saveProfile(custom); store.saveProject({ ...store.project(editedId), title: '직접 수정한 프로젝트' }, editedId);
   store.remove(id); store.db.close(); store = createPortfolioStore(isolated);
   assert.equal(store.profile().tagline, custom.tagline); assert.equal(store.profile().intro, custom.intro);
-  assert.equal(store.projects().length, starterProjects.length + careerProjects.length - 1); assert.equal(store.project(id), undefined);
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 1); assert.equal(store.project(id), undefined);
   assert.equal(store.project(editedId).title, '직접 수정한 프로젝트'); store.db.close();
 });
 
@@ -210,7 +210,7 @@ test('career import upgrades previous default text and preserves the existing th
   assert.deepEqual(store.resume(), resumeInput(careerResume));
   for (const project of originals) assert.deepEqual(store.project(project.id), project);
   for (const project of careerProjects) assert.deepEqual(({ ...store.project(project.id), updatedAt: undefined }), { id: project.id, ...projectInput(project, () => true), updatedAt: undefined });
-  assert.equal(store.projects().length, starterProjects.length + careerProjects.length);
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 2);
   assert.ok(store.db.prepare('SELECT 1 FROM migrations WHERE id=?').get('career-import-v1')); store.db.close();
 });
 
@@ -226,7 +226,7 @@ test('career import preserves custom profile fields, custom resume, and projects
   assert.deepEqual(store.resume(), customResume);
   assert.equal(store.project(customProject.id).title, customProject.title);
   assert.equal(store.project(otherProject.id).title, otherProject.title);
-  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 1); store.db.close();
+  assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 3); store.db.close();
 });
 
 test('replacing untouched starter resume text preserves its existing public visibility', () => {
@@ -267,11 +267,11 @@ test('career migration rolls back profile, resume, images, projects, and marker 
   const db = new DatabaseSync(join(isolated, 'portfolio.sqlite'));
   assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM profile WHERE id=1').get().json), starterProfile);
   assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM documents WHERE id=?').get('resume').json), starterResume);
-  assert.equal(db.prepare('SELECT COUNT(*) count FROM images').get().count, 0);
-  assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, 3);
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM images').get().count, 1);
+  assert.equal(db.prepare('SELECT COUNT(*) count FROM projects').get().count, 5);
   assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('career-import-v1'), undefined);
   db.exec('DROP TRIGGER fail_career_project'); db.close();
-  store = createPortfolioStore(isolated); assert.equal(store.projects().length, starterProjects.length + careerProjects.length); store.db.close();
+  store = createPortfolioStore(isolated); assert.equal(store.projects().length, starterProjects.length + careerProjects.length + 2); store.db.close();
 });
 
 test('imported screenshots follow project visibility and the career resume template requires login', async () => {
@@ -372,7 +372,7 @@ test('screen refresh rolls back image imports, earlier project updates and marke
   assert.equal(db.prepare('SELECT 1 FROM migrations WHERE id=?').get('portfolio-screens-20261023-v1'), undefined);
   for (const project of previous) assert.deepEqual(JSON.parse(db.prepare('SELECT json FROM projects WHERE id=?').get(project.id).json), projectInput(project, () => true));
   db.exec('DROP TRIGGER fail_screen_update'); db.close();
-  store = createPortfolioStore(isolated); assert.ok(store.projects().every(project => project.cover)); store.db.close();
+  store = createPortfolioStore(isolated); assert.ok(previousProjects.every(project => store.project(project.id)?.cover)); store.db.close();
 });
 
 const previousCareerIntro = 'Unity와 C#으로 게임을 만들고, 출시 이후에도 개발을 이어 갈 수 있는 기반을 다듬습니다. SDK 연동, 모바일 출시, 빌드 자동화와 런타임 안정성을 네 개의 프로젝트에 담았습니다.';

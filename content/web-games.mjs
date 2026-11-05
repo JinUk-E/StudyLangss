@@ -19,6 +19,16 @@ export const webGames = Object.freeze([
     controls: ['선수 생성 후 매주 훈련·회복 선택', '기록실에서 시즌과 통산 기록 확인', '설정에서 저장 파일 내보내기·가져오기'],
     note: '화면의 버튼을 눌러 진행합니다. 처음이라면 게임 안의 플레이 가이드를 확인해 주세요.',
     saveNote: '저장은 브라우저와 이 화면·새 탭 열기에 따라 달라질 수 있어요. 이어서 하려면 같은 방식으로 열거나 게임 설정의 저장 내보내기·가져오기를 이용하세요.'
+  }),
+  Object.freeze({
+    slug:'palcheok', projectId:'8d47aa00-2000-4000-8000-000000000007',
+    title:'팔척', subtitle:'PALCHEOK · PSYCHOLOGICAL HORROR',
+    url:'https://jinuk-e.github.io/WebGame/',
+    summary:'봉인된 방에서 수상한 소리와 시계를 살피며 아침까지 버티는 2D 심리 공포 게임입니다.',
+    device:'PC · 모바일 브라우저', mode:'싱글 플레이 · 심리 공포',
+    controls:['PC: WASD 또는 방향키로 이동 · E 키로 상호작용','모바일: 가상 스틱과 상호작용 버튼','문을 열 때는 움직이지 않고 버튼을 길게 누르기'],
+    note:'소리가 중요한 게임입니다. 헤드폰을 권장합니다. 처음 실행할 때 게임 데이터를 불러옵니다.',
+    saveNote:'게임을 종료하면 진행 중인 플레이가 끝날 수 있습니다. 전체화면 전환은 같은 게임 화면을 유지합니다.'
   })
 ]);
 export const webGameForProject = id => webGames.find(game => game.projectId === id);
