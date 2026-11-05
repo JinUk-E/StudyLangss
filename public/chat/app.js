@@ -214,6 +214,11 @@ async function submit(event) {
 }
 
 const planner = mountPlanner(api, text => { if (state.busy) return; $('#prompt').value = text; $('#web-search').checked = false; setBusy(false); $('#prompt').focus(); });
+const settingsToggle = $('#chat-settings-toggle'), settingsPanel = $('#chat-settings');
+function setSettings(open) { settingsPanel.dataset.expanded = String(open); settingsToggle.setAttribute('aria-expanded', String(open)); }
+settingsToggle.addEventListener('click', () => setSettings(settingsPanel.dataset.expanded !== 'true'));
+document.addEventListener('click', event => { if (settingsPanel.dataset.expanded === 'true' && !event.target.closest('#chat-settings, #chat-settings-toggle')) setSettings(false); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && settingsPanel.dataset.expanded === 'true') { setSettings(false); settingsToggle.focus(); } });
 const library = mountLibrary(api, {newChat,notice,openThread,setPrompt:text=>{if(state.busy)return;$('#prompt').value=text;$('#web-search').checked=false;setBusy(false);$('#prompt').focus();}});
 $('#composer').onsubmit = submit;
 $('#prompt').oninput = () => { $('#prompt').style.height = 'auto'; $('#prompt').style.height = `${Math.min(160, $('#prompt').scrollHeight)}px`; setBusy(state.busy); };

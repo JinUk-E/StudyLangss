@@ -17,11 +17,14 @@
     <header>
       <button id="menu" class="icon-button" aria-label="대화 목록 열기" aria-expanded="false">☰</button>
       <div class="heading"><span>스텔라 · STELLA</span><h1 id="thread-title">새 대화</h1></div>
+      <button id="chat-settings-toggle" type="button" aria-controls="chat-settings" aria-expanded="false">대화 설정 <span aria-hidden="true">⌄</span></button>
       <button id="delete-chat" class="text-button" hidden>대화 삭제</button>
     </header>
+    <div id="chat-settings" data-expanded="false">
     <div class="model-bar"><label for="model">모델</label><select id="model" aria-label="대화 모델"><option value="">불러오는 중…</option></select><button id="refresh-models" class="icon-button" aria-label="모델 목록 새로고침">↻</button><span class="local-label">이 Mac에서 실행</span></div>
     <div class="assistant-toolbar"><button id="open-planner" type="button">일정·할 일</button><button id="daily-brief" type="button">오늘 브리핑</button><span id="planner-brief" role="status">일정을 확인하고 있어요…</span></div>
     <div id="library-controls" class="assistant-toolbar" hidden><label for="library-project">대화 범위</label><select id="library-project"><option value="">개인 비서</option></select><button id="stella-notices" type="button">스텔라 공지</button><button id="open-library" type="button">자료실</button><button id="library-brief" type="button">프로젝트 브리핑</button></div>
+    </div>
     <section id="conversation" aria-label="대화 내용">
       <div id="welcome" class="welcome"><div class="stella-introduction"><div class="stella-portrait-frame" aria-hidden="true"><img src="/pwa/stella-mio.png" alt="" width="1122" height="1402"></div><div class="stella-introduction-copy"><p class="eyebrow">STELLA · 당신의 하루를 함께</p><h2>안녕하세요, 스텔라예요.<br>오늘은 무엇부터 챙겨볼까요?</h2><p>일정과 할 일은 제가 함께 챙길게요.<br>바쁜 하루에도 농담 한 스푼은 남겨두고요.</p></div></div><div class="suggestions"><button data-prompt="오늘 일정과 기한이 지난 할 일을 확인해서 우선순위를 정리해 줘.">오늘의 브리핑 <span>↗</span></button><button data-prompt="이번 주에 할 일을 같이 정리하자. 먼저 내가 할 일을 말해줄게.">할 일 정리하기 <span>↗</span></button><button data-prompt="최근 JavaScript 관련 소식을 찾아서 출처와 함께 요약해줘." data-search="true">새로운 소식 찾기 <span>↗</span></button></div></div>
       <div id="messages"></div>
